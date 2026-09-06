@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
+import { clearAllCache } from "@core/api/dedupe";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -197,9 +198,11 @@ const SubCategories = () => {
 
       if (editingItem) {
         await adminApi.updateCategory(editingItem._id || editingItem.id, data);
+        clearAllCache();
         toast.success("Subcategory updated");
       } else {
         await adminApi.createCategory(data);
+        clearAllCache();
         toast.success("Subcategory created");
       }
       setIsAddModalOpen(false);
@@ -218,6 +221,7 @@ const SubCategories = () => {
 
     try {
       await adminApi.deleteCategory(deleteTarget._id || deleteTarget.id);
+      clearAllCache();
       toast.success("Subcategory deleted");
       setIsDeleteModalOpen(false);
       setDeleteTarget(null);
@@ -394,13 +398,13 @@ const SubCategories = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                  <td colSpan={7} className="text-center py-8 text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : filteredCategories.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                  <td colSpan={7} className="text-center py-8 text-gray-500">
                     No subcategories found
                   </td>
                 </tr>

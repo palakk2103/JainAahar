@@ -275,6 +275,66 @@ function stripRestrictedModerationFields(payload = {}) {
   }
 }
 
+function sanitizeProductPayload(productData) {
+  // Sanitize ObjectId fields: convert empty strings, 'null', 'undefined' to null or delete
+  const nullableIdFields = ["subcategoryId", "sellerId", "warehouseId"];
+  for (const field of nullableIdFields) {
+    if (productData[field] !== undefined) {
+      const val = String(productData[field] || "").trim();
+      if (!val || val === "null" || val === "undefined") {
+        productData[field] = null;
+      }
+    }
+  }
+
+  const requiredIdFields = ["headerId", "categoryId"];
+  for (const field of requiredIdFields) {
+    if (productData[field] !== undefined) {
+      const val = String(productData[field] || "").trim();
+      if (!val || val === "null" || val === "undefined") {
+        delete productData[field];
+      }
+    }
+  }
+
+  // Sanitize numeric fields
+  if (productData.price !== undefined && productData.price !== "") {
+    productData.price = Number(productData.price) || 0;
+  }
+  if (productData.salePrice !== undefined && productData.salePrice !== "") {
+    productData.salePrice = Number(productData.salePrice) || 0;
+  }
+  if (productData.stock !== undefined && productData.stock !== "") {
+    productData.stock = Number(productData.stock) || 0;
+  }
+  if (productData.lowStockAlert !== undefined && productData.lowStockAlert !== "") {
+    productData.lowStockAlert = Number(productData.lowStockAlert) || 5;
+  }
+
+  // Sanitize variants
+  if (Array.isArray(productData.variants)) {
+    productData.variants = productData.variants
+      .filter((v) => v && typeof v === "object")
+      .map((v) => ({
+        name: String(v.name || "Default").trim(),
+        price: Number(v.price) || 0,
+        salePrice: Number(v.salePrice) || 0,
+        stock: Number(v.stock) || 0,
+        sku: v?.sku && String(v.sku).trim() ? String(v.sku).trim() : undefined,
+      }));
+  }
+
+  // Sanitize highlights
+  if (Array.isArray(productData.highlights)) {
+    productData.highlights = productData.highlights
+      .filter((h) => h && (h.icon || h.label))
+      .map((h) => ({
+        icon: String(h.icon || "").trim(),
+        label: String(h.label || "").trim(),
+      }));
+  }
+}
+
 function normalizeProductDocumentModeration(product) {
   if (!product) return product;
   return normalizeProductModerationFields(product);
@@ -736,16 +796,17 @@ export const createProduct = async (req, res) => {
     if (role === "admin") {
       // Single-vendor model: Admin is the sole seller.
       // sellerId is optional — if provided (e.g. legacy store), use it; otherwise leave null.
-      if (!productData.sellerId) {
+      if (!productData.sellerId || productData.sellerId === "null" || productData.sellerId === "undefined") {
         const storeId = await resolveAdminStore();
         if (storeId) {
           productData.sellerId = storeId;
+        } else {
+          productData.sellerId = null;
         }
-        // No error if no store — admin-owned products can have sellerId = null
       }
     } else if (role === "warehouse") {
       // Warehouse-created products: set the warehouse ID for backward compatibility
-      if (!productData.sellerId) {
+      if (!productData.sellerId || productData.sellerId === "null" || productData.sellerId === "undefined") {
         productData.sellerId = req.user.id;
       }
     } else {
@@ -788,10 +849,7 @@ export const createProduct = async (req, res) => {
       try {
         productData.variants = JSON.parse(productData.variants);
       } catch (e) {
-        logger.error("Failed to parse variants JSON", {
-          scope: "createProduct",
-          error: e,
-        });
+        productData.variants = [];
       }
     }
     if (typeof productData.tags === "string" && productData.tags.startsWith("[")) {
@@ -805,11 +863,14 @@ export const createProduct = async (req, res) => {
       try {
         productData.highlights = JSON.parse(productData.highlights);
       } catch (e) {
-        // Not JSON
+        productData.highlights = [];
       }
     }
 
-    if (!productData.name) {
+    // Clean and sanitize all types and ObjectId references
+    sanitizeProductPayload(productData);
+
+    if (!productData.name || !String(productData.name).trim()) {
       return handleResponse(res, 400, "Product name is required");
     }
     
@@ -832,7 +893,7 @@ export const createProduct = async (req, res) => {
 
     // Handle tags if string
     if (typeof productData.tags === "string") {
-      productData.tags = productData.tags.split(",").map((tag) => tag.trim());
+      productData.tags = productData.tags.split(",").map((tag) => tag.trim()).filter(Boolean);
     }
 
     // Handle variants if string (multipart/form-data sends as string)
@@ -900,7 +961,19 @@ export const createProduct = async (req, res) => {
       normalizeProductDocumentModeration(product?.toObject?.() || product),
     );
   } catch (error) {
-    logger.error("Create Product Error", { scope: "createProduct", error });
+    logger.error("Create Product Error", { scope: "createProduct", error: error.message, stack: error.stack });
+    if (error.name === "ValidationError") {
+      return handleResponse(
+        res,
+        400,
+        Object.values(error.errors || {})
+          .map((e) => e.message)
+          .join(", ") || error.message,
+      );
+    }
+    if (error.name === "CastError") {
+      return handleResponse(res, 400, `Invalid ${error.path}: ${error.value}`);
+    }
     if (error.code === 11000) {
       return handleResponse(res, 400, "Slug or SKU already exists");
     }
@@ -955,10 +1028,7 @@ export const updateProduct = async (req, res) => {
       try {
         productData.variants = JSON.parse(productData.variants);
       } catch (e) {
-        logger.error("Failed to parse variants JSON during update", {
-          scope: "updateProduct",
-          error: e,
-        });
+        productData.variants = [];
       }
     }
     if (typeof productData.tags === "string" && productData.tags.startsWith("[")) {
@@ -972,9 +1042,12 @@ export const updateProduct = async (req, res) => {
       try {
         productData.highlights = JSON.parse(productData.highlights);
       } catch (e) {
-        // Not JSON
+        productData.highlights = [];
       }
     }
+
+    // Clean and sanitize all types and ObjectId references
+    sanitizeProductPayload(productData);
 
     // Admin bypasses sellerId check
     const query = role === "admin" ? { _id: id } : { _id: id, sellerId };
@@ -1025,15 +1098,7 @@ export const updateProduct = async (req, res) => {
     applyMediaFields(productData);
 
     if (typeof productData.tags === "string") {
-      productData.tags = productData.tags.split(",").map((tag) => tag.trim());
-    }
-
-    if (typeof productData.variants === "string") {
-      try {
-        productData.variants = JSON.parse(productData.variants);
-      } catch (e) {
-        // keep existing if invalid?
-      }
+      productData.tags = productData.tags.split(",").map((tag) => tag.trim()).filter(Boolean);
     }
 
     if (Array.isArray(productData.variants)) {
@@ -1094,14 +1159,14 @@ export const updateProduct = async (req, res) => {
       normalizeProductDocumentModeration(updatedProduct?.toObject?.() || updatedProduct),
     );
   } catch (error) {
-    logger.error("Update Product Error", { scope: "updateProduct", error });
+    logger.error("Update Product Error", { scope: "updateProduct", error: error.message, stack: error.stack });
     if (error.name === "ValidationError") {
       return handleResponse(
         res,
         400,
-        Object.values(error.errors)
+        Object.values(error.errors || {})
           .map((e) => e.message)
-          .join(", "),
+          .join(", ") || error.message,
       );
     }
     if (error.name === "CastError") {

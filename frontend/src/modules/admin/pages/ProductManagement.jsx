@@ -244,14 +244,14 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
 
             if (formData.mainImageFile) {
                 data.append('mainImage', formData.mainImageFile);
-            } else if (formData.mainImage && typeof formData.mainImage === 'string') {
+            } else if (formData.mainImage && typeof formData.mainImage === 'string' && formData.mainImage.startsWith('http')) {
                 data.append('mainImageUrl', formData.mainImage);
             }
             if (formData.galleryFiles && formData.galleryFiles.length > 0) {
                 formData.galleryFiles.forEach((file) => data.append('galleryImages', file));
             }
             if (Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0) {
-                const existingUrls = formData.galleryImages.filter(img => typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:')));
+                const existingUrls = formData.galleryImages.filter(img => typeof img === 'string' && img.startsWith('http'));
                 if (existingUrls.length > 0) {
                     data.append('galleryImages', JSON.stringify(existingUrls));
                 }

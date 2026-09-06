@@ -88,14 +88,22 @@ function CategoryNavColumn({
       className="relative z-[2] flex min-w-[48px] shrink-0 cursor-pointer flex-col items-center gap-0.5 px-2 pb-0.5 pt-0.5 snap-start md:min-w-[58px]">
       <div 
         className={cn(
-          "relative z-10 flex items-center justify-center rounded-full transition-all duration-300",
+          "relative z-10 flex items-center justify-center rounded-full overflow-hidden transition-all duration-300",
           isActive ? "h-12 w-12 md:h-14 md:w-14 shadow-sm" : "h-11 w-11 md:h-12 md:w-12 opacity-90"
         )}
         style={{
           backgroundColor: `${iconColor}15`,
         }}
       >
-        {typeof cat.icon === "function" ||
+        {cat.image || (typeof cat.icon === "string" && (cat.icon.startsWith("http") || cat.icon.startsWith("data:") || cat.icon.includes("/"))) ? (
+          <img
+            src={applyCloudinaryTransform(cat.image || cat.icon, "f_auto,q_auto,w_100")}
+            alt={cat.name}
+            loading="lazy"
+            className="h-full w-full object-cover rounded-full drop-shadow-sm transition-all duration-300"
+            style={{ filter: isActive ? 'none' : 'brightness(0.95)' }}
+          />
+        ) : typeof cat.icon === "function" ||
           (typeof cat.icon === "object" && cat.icon.$$typeof) ? (
           <cat.icon
             sx={{
@@ -119,7 +127,7 @@ function CategoryNavColumn({
             src={applyCloudinaryTransform(cat.icon, "f_auto,q_auto,w_100")}
             alt={cat.name}
             loading="lazy"
-            className="h-6 w-6 md:h-7 md:w-7 object-contain drop-shadow-sm transition-all duration-300"
+            className="h-full w-full object-cover rounded-full drop-shadow-sm transition-all duration-300"
             style={{ filter: isActive ? 'none' : 'brightness(0.95)' }}
           />
         )}

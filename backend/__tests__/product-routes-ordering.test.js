@@ -16,6 +16,7 @@ jest.unstable_mockModule("../app/controller/productController.js", () => ({
   createProduct: jest.fn((req, res) => res.status(201).json({})),
   updateProduct: jest.fn((req, res) => res.status(200).json({})),
   deleteProduct: jest.fn((req, res) => res.status(200).json({})),
+  deleteAllProducts: jest.fn((req, res) => res.status(200).json({})),
   getProductById: mockGetProductById,
   getModerationProducts: jest.fn((req, res) => res.status(200).json({})),
   approveProduct: jest.fn((req, res) => res.status(200).json({})),

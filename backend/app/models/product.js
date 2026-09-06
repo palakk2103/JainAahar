@@ -77,7 +77,8 @@ const productSchema = new mongoose.Schema(
         subcategoryId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Category",
-            required: true,
+            required: false,
+            default: null,
         },
         /**
          * Legacy seller reference. Optional in single-vendor model where

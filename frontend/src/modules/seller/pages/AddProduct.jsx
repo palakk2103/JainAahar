@@ -174,9 +174,9 @@ const AddProduct = () => {
       data.append("stock", firstVariant.stock);
 
       // Category IDs
-      data.append("headerId", formData.header);
-      data.append("categoryId", formData.category);
-      data.append("subcategoryId", formData.subcategory);
+      data.append("headerId", formData.header || "");
+      data.append("categoryId", formData.category || "");
+      data.append("subcategoryId", formData.subcategory || "");
 
       // Tags
       data.append("tags", formData.tags);

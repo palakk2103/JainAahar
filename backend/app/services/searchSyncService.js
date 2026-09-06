@@ -73,6 +73,9 @@ export async function enqueueProductIndex(productId) {
   
   try {
     const queue = getSearchIndexQueue();
+    if (!queue) {
+      return;
+    }
     await queue.add("index", { productId }, {
       jobId: `index-${productId}`, // Prevent duplicate jobs
     });
@@ -80,7 +83,7 @@ export async function enqueueProductIndex(productId) {
     logger.debug(`[SearchSync] Enqueued index job for product ${productId}`);
     
   } catch (error) {
-    logger.error(`[SearchSync] Error enqueuing index job for product ${productId}:`, error);
+    logger.error(`[SearchSync] Error enqueuing index job for product ${productId}:`, { error: error.message });
     // Don't throw - indexing is async and shouldn't block product operations
   }
 }
@@ -97,6 +100,9 @@ export async function enqueueProductRemoval(productId) {
   
   try {
     const queue = getSearchIndexQueue();
+    if (!queue) {
+      return;
+    }
     await queue.add("remove", { productId }, {
       jobId: `remove-${productId}`, // Prevent duplicate jobs
     });
@@ -104,7 +110,7 @@ export async function enqueueProductRemoval(productId) {
     logger.debug(`[SearchSync] Enqueued remove job for product ${productId}`);
     
   } catch (error) {
-    logger.error(`[SearchSync] Error enqueuing remove job for product ${productId}:`, error);
+    logger.error(`[SearchSync] Error enqueuing remove job for product ${productId}:`, { error: error.message });
     // Don't throw - indexing is async and shouldn't block product operations
   }
 }

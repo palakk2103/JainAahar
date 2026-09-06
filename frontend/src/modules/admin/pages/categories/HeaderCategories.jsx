@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
+import { clearAllCache } from "@core/api/dedupe";
 import IconSelector from "@shared/components/IconSelector";
 import Pagination from "@shared/components/ui/Pagination";
 import { getIconSvg } from "@shared/constants/categoryIcons";
@@ -86,6 +87,8 @@ const HeaderCategories = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
+  const [allHeaderCategory, setAllHeaderCategory] = useState(null);
+
   // Map our icon ids to MUI icon components so admin UI
   // previews the same icons used in the customer app.
   const iconComponents = {
@@ -130,6 +133,19 @@ const HeaderCategories = () => {
         setCategories(headers);
         setTotal(typeof payload.total === "number" ? payload.total : headers.length);
         setPage(typeof payload.page === "number" ? payload.page : requestedPage);
+
+        // Find or search for the "All" tab category document
+        const foundAll = headers.find((c) => (c.slug?.toLowerCase() === "all") || (c.name?.toLowerCase() === "all"));
+        if (foundAll) {
+          setAllHeaderCategory(foundAll);
+        } else {
+          try {
+            const allRes = await adminApi.getCategories({ type: "header", search: "all" });
+            const allItems = allRes.data?.results || allRes.data?.result?.items || [];
+            const exactAll = allItems.find((c) => c.slug?.toLowerCase() === "all" || c.name?.toLowerCase() === "all");
+            if (exactAll) setAllHeaderCategory(exactAll);
+          } catch (_) {}
+        }
       }
     } catch (error) {
       toast.error("Failed to fetch header categories");
@@ -200,9 +216,11 @@ const HeaderCategories = () => {
 
       if (editingItem) {
         await adminApi.updateCategory(editingItem._id || editingItem.id, data);
+        clearAllCache();
         toast.success("Header category updated");
       } else {
         await adminApi.createCategory(data);
+        clearAllCache();
         toast.success("Header category created");
       }
       setIsAddModalOpen(false);
@@ -221,6 +239,7 @@ const HeaderCategories = () => {
 
     try {
       await adminApi.deleteCategory(deleteTarget._id || deleteTarget.id);
+      clearAllCache();
       toast.success("Header category deleted");
       setIsDeleteModalOpen(false);
       setDeleteTarget(null);
@@ -271,6 +290,31 @@ const HeaderCategories = () => {
     setIsAddModalOpen(true);
   };
 
+  const openAllCategoryModal = () => {
+    if (allHeaderCategory) {
+      openEditModal(allHeaderCategory);
+    } else {
+      setEditingItem(null);
+      setFormData({
+        name: "All",
+        slug: "all",
+        description: "Default all categories view for customer app header",
+        status: "active",
+        type: "header",
+        parentId: null,
+        iconId: "",
+        adminCommission: "",
+        handlingFees: "",
+        headerColor: "#0e7490",
+        headerFontColor: "#111111",
+        headerIconColor: "#111111",
+      });
+      setImageFile(null);
+      setPreviewUrl(null);
+      setIsAddModalOpen(true);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -285,6 +329,46 @@ const HeaderCategories = () => {
           className="flex items-center gap-2 bg-black text-primary-foreground px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors">
           <Plus className="w-5 h-5" />
           Add New Header
+        </button>
+      </div>
+
+      {/* ALL Tab Customization Card */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-full bg-white shadow-sm border border-amber-200 flex items-center justify-center overflow-hidden shrink-0">
+            {allHeaderCategory?.image ? (
+              <img
+                src={allHeaderCategory.image}
+                alt="All Tab"
+                className="w-full h-full object-cover"
+              />
+            ) : allHeaderCategory?.iconId && iconComponents[allHeaderCategory.iconId] ? (
+              (() => {
+                const IconComp = iconComponents[allHeaderCategory.iconId];
+                return <IconComp className="w-6 h-6 text-amber-600" />;
+              })()
+            ) : (
+              <span className="text-2xl">🌟</span>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-gray-900 text-base">"ALL" Tab (Customer Header 1st Tab)</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                Default First Tab
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Customer app ke header me pehle "All" tab ki custom image ya icon yaha se change karein.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={openAllCategoryModal}
+          className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors shrink-0">
+          <Edit className="w-4 h-4" />
+          {allHeaderCategory?.image ? "Change 'All' Tab Image" : "Set 'All' Tab Image / Icon"}
         </button>
       </div>
 
@@ -352,13 +436,13 @@ const HeaderCategories = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     No header categories found
                   </td>
                 </tr>
@@ -377,7 +461,13 @@ const HeaderCategories = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200">
-                        {cat.iconId && iconComponents[cat.iconId] ? (
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : cat.iconId && iconComponents[cat.iconId] ? (
                           <div className="w-6 h-6 text-brand-600 flex items-center justify-center">
                             {(() => {
                               const IconComp = iconComponents[cat.iconId];
@@ -390,12 +480,6 @@ const HeaderCategories = () => {
                             dangerouslySetInnerHTML={{
                               __html: getIconSvg(cat.iconId),
                             }}
-                          />
-                        ) : cat.image ? (
-                          <img
-                            src={cat.image}
-                            alt={cat.name}
-                            className="w-full h-full object-cover"
                           />
                         ) : (
                           <Image className="w-5 h-5 text-gray-400" />

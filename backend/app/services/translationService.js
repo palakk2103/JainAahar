@@ -1,4 +1,4 @@
-import translateClient from '../config/googleCloud.js';
+import translate from 'google-translate-api-x';
 
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const cache = new Map();
@@ -40,17 +40,13 @@ export const translateText = async (text, targetLang, sourceLang = 'en') => {
     return cached.value;
   }
 
-  if (!translateClient) {
-    return text;
-  }
-
   try {
     const fn = async () => {
-      const [translation] = await translateClient.translate(text, {
+      const res = await translate(text, {
         from: sourceLang,
         to: targetLang
       });
-      return translation;
+      return res?.text || text;
     };
 
     const translated = await callWithRetry(fn);
@@ -98,20 +94,14 @@ export const translateBatch = async (texts, targetLang, sourceLang = 'en') => {
     return results;
   }
 
-  if (!translateClient) {
-    for (let i = 0; i < uncachedIndices.length; i++) {
-      results[uncachedIndices[i]] = uncachedTexts[i];
-    }
-    return results;
-  }
-
   try {
     const fn = async () => {
-      const [translations] = await translateClient.translate(uncachedTexts, {
+      const res = await translate(uncachedTexts, {
         from: sourceLang,
         to: targetLang
       });
-      return Array.isArray(translations) ? translations : [translations];
+      const translations = Array.isArray(res) ? res.map(r => r.text) : [res.text];
+      return translations;
     };
 
     const translatedBatch = await callWithRetry(fn);
@@ -171,3 +161,4 @@ export const translateObject = async (obj, targetLang, sourceLang = 'en', keysTo
 
   return cloned;
 };
+

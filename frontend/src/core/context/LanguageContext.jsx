@@ -5,8 +5,7 @@ const LanguageContext = createContext(null);
 
 const languages = [
     { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
-    { code: 'mr', name: 'मराठी', flag: '🇮🇳' }
+    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' }
 ];
 
 const translations = {
@@ -64,8 +63,7 @@ const translations = {
         selectLanguage: "Select Language",
         languageDesc: "Choose your preferred language",
         english: "English",
-        hindi: "Hindi (हिन्दी)",
-        marathi: "Marathi (मराठी)"
+        hindi: "Hindi (हिन्दी)"
     },
     hi: {
         // Login / Signup Page
@@ -121,65 +119,7 @@ const translations = {
         selectLanguage: "भाषा चुनें",
         languageDesc: "अपनी पसंदीदा भाषा चुनें",
         english: "English",
-        hindi: "हिन्दी (Hindi)",
-        marathi: "मराठी (Marathi)"
-    },
-    mr: {
-        // Login / Signup Page
-        loginSignup: "लॉगिन / नोंदणी",
-        enterMobile: "तुमचा मोबाईल नंबर टाका",
-        createAccount: "नवीन खाते तयार करा",
-        fullName: "पूर्ण नाव",
-        referralCode: "रेफरल कोड (पर्यायी)",
-        mobileNumber: "मोबाईल नंबर",
-        continue: "पुढे जा",
-        pleaseWait: "कृपया प्रतीक्षा करा...",
-        newUser: "नवीन वापरकर्ता? खाते तयार करा",
-        alreadyAccount: "आधीच खाते आहे? लॉगिन करा",
-        verifyOtp: "ओटीपी सत्यापित करा",
-        sentTo: "या नंबरवर पाठवला",
-        verifyProceed: "सत्यापित करा आणि पुढे जा",
-        verifying: "सत्यापित करत आहे...",
-        resendIn: "पुन्हा कोड पाठवा",
-        resendCode: "पुन्हा कोड पाठवा",
-        agreeText: "पुढे चालू ठेवून, आपण आमच्या अटींशी सहमत आहात",
-        terms: "नियम आणि अटी",
-        privacy: "गोपनीयता धोरण",
-        enterValidPhone: "कृपया १० अंकी मोबाईल नंबर टाका",
-        enterFullName: "कृपया तुमचे पूर्ण नाव टाका",
-        otpSent: "ओटीपी पाठवला आहे!",
-        loggedInSuccess: "यशस्वीरित्या लॉगिन झाले!",
-        invalidOtp: "अमान्य ओटीपी",
-
-        // Profile Page
-        myProfile: "माझी प्रोफाइल",
-        personalAccount: "वैयक्तिक खाते",
-        myCart: "माझे कार्ट",
-        viewAdded: "तुमचे जोडलेले उत्पादन पहा",
-        yourOrders: "तुमच्या ऑर्डर्स",
-        trackReturn: "ट्रैक करा, परत करा किंवा पुन्हा खरेदी करा",
-        transactions: "ऑर्डरचे व्यवहार",
-        viewPayments: "सर्व पेमेंट आणि परतावा पहा",
-        wallet: "वॉलेट",
-        balanceRefunds: "शिल्लक आणि परतावा पहा",
-        wishlist: "तुमची विशलिस्ट",
-        savedItems: "तुमचे जतन केलेले उत्पादन",
-        savedAddresses: "जतन केलेले पत्ते",
-        manageLocations: "तुमचे वितरण ठिकाण व्यवस्थापित करा",
-        helpSettings: "मदत आणि सेटिंग्ज",
-        helpSupport: "मदत आणि समर्थन",
-        aboutUs: "आमच्याबद्दल",
-        signOut: "साइन आउट",
-        version: "आवृत्ती",
-        signOutTitle: "साइन आउट करायचे?",
-        signOutConfirm: "आपण नक्की आपल्या खात्यातून साइन आउट करू इच्छिता? ऑर्डर्स पाहण्यासाठी आपल्याला पुन्हा लॉगिन करावे लागेल.",
-        cancel: "रद्द करा",
-        yesSignOut: "होय, साइन आउट करा",
-        selectLanguage: "भाषा निवडा",
-        languageDesc: "तुमची पसंतीची भाषा निवडा",
-        english: "English",
-        hindi: "हिन्दी (Hindi)",
-        marathi: "मराठी (Marathi)"
+        hindi: "हिन्दी (Hindi)"
     }
 };
 
@@ -187,7 +127,10 @@ const GlobalDomTranslator = ({ language }) => {
     useEffect(() => {
         let isCurrent = true;
 
-        if (language === 'en') {
+        const path = window.location.pathname.toLowerCase();
+        const isAdminOrStaff = path.startsWith('/admin') || path.startsWith('/seller') || path.startsWith('/delivery') || path.startsWith('/warehouse');
+
+        if (language === 'en' || isAdminOrStaff) {
             const revertNode = (node) => {
                 if (node.nodeType === Node.TEXT_NODE) {
                     if (node['_originalText'] !== undefined && node.nodeValue !== node['_originalText']) {

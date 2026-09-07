@@ -152,43 +152,9 @@ const WarehouseAuth = () => {
         }
     };
 
-    const handleBack = () => {
-        if (!isLogin && signupStep > 1) {
-            setSignupStep(prev => prev - 1);
-            return;
-        }
-        if (window.history.length > 1) {
-            navigate(-1);
-        } else {
-            navigate('/', { replace: true });
-        }
-    };
-
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8 font-['Outfit',_sans-serif]">
             <div className="w-full max-w-md space-y-6 bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-                {/* Header Navigation Bar */}
-                <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                    <button
-                        type="button"
-                        onClick={handleBack}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 border border-gray-200/80 rounded-xl transition-all shadow-xs cursor-pointer"
-                        title="Go Back"
-                    >
-                        <ArrowLeft size={16} className="text-gray-600" />
-                        <span>Back</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => navigate('/')}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100/70 border border-orange-200/60 rounded-xl transition-all cursor-pointer"
-                        title="Go to Home"
-                    >
-                        <span>Home</span>
-                    </button>
-                </div>
-
                 <div className="flex flex-col items-center justify-center">
                     <img 
                         src={logoUrl}

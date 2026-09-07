@@ -26,8 +26,8 @@ async function testSingle() {
 async function testBatch() {
   try {
     const res = await axios.post(`${baseUrl}/batch`, {
-      texts: ['Apples', 'Oranges', 'Vegetables', 'Checkout'],
-      targetLang: 'mr',
+      texts: ['Apples', 'Oranges', 'Vegetables', 'Checkout', 'Fresh Jain Paneer'],
+      targetLang: 'hi',
       sourceLang: 'en'
     });
     console.log('Batch translation response:', res.data);

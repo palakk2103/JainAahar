@@ -211,48 +211,7 @@ const navItems = [
       { label: "Review Content", path: "/admin/moderation" },
     ],
   },
-  {
-    label: "Monthly Baskets",
-    icon: Box,
-    color: "amber",
-    children: [
-      { label: "Categories", path: "/admin/monthly-baskets/categories" },
-      { label: "Banners", path: "/admin/monthly-baskets/banners" },
-      { label: "Approvals", path: "/admin/monthly-baskets/approvals" },
-    ],
-  },
-  {
-    label: "Delivery Drivers",
-    icon: Truck,
-    color: "emerald",
-    children: [
-      { label: "Active Drivers", path: "/admin/delivery-boys/active" },
-      { label: "Waiting for Review", path: "/admin/delivery-boys/pending" },
-      { label: "Track Drivers", path: "/admin/tracking" },
-      { label: "Send Money", path: "/admin/delivery-funds" },
-      { label: "SOS Alerts", path: "/admin/sos-alerts" },
-    ],
-  },
   { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
-  {
-    label: "Money Requests",
-    path: "/admin/withdrawals",
-    icon: Banknote,
-    color: "cyan",
-  },
-  {
-    label: "Seller Payments",
-    path: "/admin/seller-transactions",
-    icon: Receipt,
-    color: "orange",
-  },
-  {
-    label: "Collect Cash",
-    path: "/admin/cash-collection",
-    icon: CircleDollarSign,
-    color: "green",
-  },
-  { label: "Employees", path: "/admin/employees", icon: UserCheck, color: "green" },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
 

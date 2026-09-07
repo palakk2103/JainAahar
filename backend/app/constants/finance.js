@@ -128,6 +128,7 @@ export const HANDLING_FEE_STRATEGY = {
 export const DELIVERY_PRICING_MODE = {
   FIXED_PRICE: "fixed_price",
   DISTANCE_BASED: "distance_based",
+  SHIPROCKET_DYNAMIC: "shiprocket_dynamic",
 };
 
 export const FINANCE_AUDIT_ACTION = {

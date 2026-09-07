@@ -28,8 +28,12 @@ export const checkoutPreviewSchema = Joi.object({
     city: Joi.string().allow("", null),
     phone: Joi.string().allow("", null),
     landmark: Joi.string().allow("", null),
+    pincode: Joi.string().allow("", null).optional(),
+    postalCode: Joi.string().allow("", null).optional(),
     location: locationSchema.optional(),
   }).required(),
+  pincode: Joi.string().allow("", null).optional(),
+  customerPincode: Joi.string().allow("", null).optional(),
   distanceKm: Joi.number().min(0).optional(),
   discountTotal: Joi.number().min(0).default(0),
   taxTotal: Joi.number().min(0).default(0),
@@ -104,8 +108,8 @@ export const payoutProcessSchema = Joi.object({
 });
 
 export const updateDeliverySettingsSchema = Joi.object({
-  deliveryPricingMode: Joi.string().valid("fixed_price", "distance_based").optional(),
-  pricingMode: Joi.string().valid("fixed_price", "distance_based").optional(),
+  deliveryPricingMode: Joi.string().valid("fixed_price", "distance_based", "shiprocket_dynamic").optional(),
+  pricingMode: Joi.string().valid("fixed_price", "distance_based", "shiprocket_dynamic").optional(),
   customerBaseDeliveryFee: Joi.number().min(0).optional(),
   riderBasePayout: Joi.number().min(0).optional(),
   baseDeliveryCharge: Joi.number().min(0).optional(),
@@ -119,6 +123,8 @@ export const updateDeliverySettingsSchema = Joi.object({
     .optional(),
   codEnabled: Joi.boolean().optional(),
   onlineEnabled: Joi.boolean().optional(),
+  defaultShippingWeightKg: Joi.number().min(0).optional(),
+  shippingBuffer: Joi.number().min(0).optional(),
 }).or(
   "deliveryPricingMode",
   "pricingMode",
@@ -133,4 +139,6 @@ export const updateDeliverySettingsSchema = Joi.object({
   "handlingFeeStrategy",
   "codEnabled",
   "onlineEnabled",
+  "defaultShippingWeightKg",
+  "shippingBuffer",
 );

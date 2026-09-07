@@ -14,7 +14,7 @@ const AdminAuth = () => {
     const navigate = useNavigate();
     
     // Attempt to use a configured logo, otherwise fallback to the hardcoded default
-    const logoUrl = settings?.logoUrl || '/bg remove logo .png';
+    const logoUrl = settings?.logoUrl || '/jainaaharlogo-removebg-preview.png';
 
     const [formData, setFormData] = useState({
         email: '',

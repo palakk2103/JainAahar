@@ -3,10 +3,13 @@ import Warehouse from "../models/warehouse.js";
 import Category from "../models/category.js";
 import { distanceMeters } from "../utils/geoUtils.js";
 import {
+  DELIVERY_PRICING_MODE,
   HANDLING_FEE_STRATEGY,
   isWalletRedemptionReducesPayableEnabled,
   isServerSideCouponEngineEnabled,
 } from "../constants/finance.js";
+import { getOrCreateFinanceSettings } from "./finance/financeSettingsService.js";
+import { calculateCheckoutShipping } from "./shippingRateService.js";
 import {
   calculateHandlingFee,
   generateOrderPaymentBreakdown,
@@ -83,7 +86,7 @@ function round2(value) {
   return Number((Number(value || 0)).toFixed(2));
 }
 
-function buildAggregateBreakdown(sellerBreakdowns = []) {
+function buildAggregateBreakdown(sellerBreakdowns = [], shippingResult = null) {
   const aggregate = {
     currency: sellerBreakdowns[0]?.currency || "INR",
     productSubtotal: sumField(sellerBreakdowns, "productSubtotal"),
@@ -115,6 +118,20 @@ function buildAggregateBreakdown(sellerBreakdowns = []) {
     codPendingAmount: sumField(sellerBreakdowns, "codPendingAmount"),
     distanceKmActual: sumField(sellerBreakdowns, "distanceKmActual"),
     distanceKmRounded: sumField(sellerBreakdowns, "distanceKmRounded"),
+    ...(shippingResult
+      ? {
+          shippingChargeEstimated: shippingResult.shippingCharge,
+          shippingRateSource: shippingResult.shippingRateSource,
+          shippingCalculatedAt: shippingResult.calculatedAt,
+          fulfillmentWarehouseId: shippingResult.fulfillmentWarehouse?.id,
+          fulfillmentWarehouseName: shippingResult.fulfillmentWarehouse?.name,
+          fulfillmentWarehouseCity: shippingResult.fulfillmentWarehouse?.city,
+          fulfillmentWarehousePincode: shippingResult.fulfillmentWarehouse?.pincode,
+          courierInfo: shippingResult.courierInfo || null,
+          totalShippingWeight: shippingResult.totalWeight || null,
+          isLocalDelivery: !!shippingResult.isLocalDelivery,
+        }
+      : {}),
     snapshots: {
       perSeller: sellerBreakdowns.map((row, index) => ({
         index,
@@ -381,6 +398,8 @@ export async function buildCheckoutPricingSnapshot({
   couponCode = null,
   couponId = null,
   customerId = null,
+  customerPincode = null,
+  paymentMode = "COD",
   session = null,
 }) {
   const hydratedItems = await hydrateOrderItems(orderItems, {
@@ -419,6 +438,30 @@ export async function buildCheckoutPricingSnapshot({
     }
   }
 
+  // Dynamic Shiprocket shipping calculation
+  const financeSettings = await getOrCreateFinanceSettings({ session });
+  const isShiprocketDynamic =
+    financeSettings.deliveryPricingMode === DELIVERY_PRICING_MODE.SHIPROCKET_DYNAMIC;
+
+  const rawPincode =
+    customerPincode ||
+    address?.pincode ||
+    address?.postalCode ||
+    (typeof address?.city === "string" ? address.city.match(/\b\d{6}\b/)?.[0] : null) ||
+    "";
+  const rawCity = address?.city || "";
+
+  let shippingResult = null;
+  if (isShiprocketDynamic && rawPincode) {
+    shippingResult = await calculateCheckoutShipping({
+      items: hydratedItems,
+      customerPincode: rawPincode,
+      customerCity: rawCity,
+      paymentMode,
+      session,
+    });
+  }
+
   const itemsBySeller = groupHydratedItemsBySeller(hydratedItems);
   const sellerIds = Array.from(itemsBySeller.keys()).sort((a, b) => a.localeCompare(b));
   const sellerBreakdownEntries = [];
@@ -435,11 +478,33 @@ export async function buildCheckoutPricingSnapshot({
 
   for (const sellerId of sellerIds) {
     const sellerItems = itemsBySeller.get(sellerId) || [];
-    const distanceKm = await computeDistanceKmForSeller({
-      sellerId,
-      addressLocation: address?.location,
-      session,
-    });
+    
+    let distanceKm = 0;
+    let effectiveDeliverySettings = financeSettings;
+
+    if (isShiprocketDynamic) {
+      if (shippingResult) {
+        effectiveDeliverySettings = {
+          ...financeSettings,
+          deliveryPricingMode: DELIVERY_PRICING_MODE.FIXED_PRICE,
+          fixedDeliveryFee: shippingResult.shippingCharge,
+        };
+      } else {
+        effectiveDeliverySettings = {
+          ...financeSettings,
+          deliveryPricingMode: DELIVERY_PRICING_MODE.FIXED_PRICE,
+          fixedDeliveryFee: 0,
+        };
+      }
+      distanceKm = 0;
+    } else {
+      distanceKm = await computeDistanceKmForSeller({
+        sellerId,
+        addressLocation: address?.location,
+        session,
+      });
+    }
+
     // Distribute discount proportionally by seller subtotal
     const sellerRatio = totalSubtotal > 0 ? (sellerSubtotals.get(sellerId) || 0) / totalSubtotal : 1 / sellerIds.length;
     const sellerDiscount = round2(effectiveDiscount * sellerRatio);
@@ -449,8 +514,19 @@ export async function buildCheckoutPricingSnapshot({
       distanceKm,
       discountTotal: sellerDiscount,
       taxTotal: 0,
+      deliverySettings: effectiveDeliverySettings,
       session,
     });
+
+    if (shippingResult) {
+      breakdown.shippingChargeEstimated = shippingResult.shippingCharge;
+      breakdown.shippingRateSource = shippingResult.shippingRateSource;
+      breakdown.shippingCalculatedAt = shippingResult.calculatedAt;
+      breakdown.fulfillmentWarehouseId = shippingResult.fulfillmentWarehouse?.id;
+      breakdown.fulfillmentWarehouseName = shippingResult.fulfillmentWarehouse?.name;
+      breakdown.fulfillmentWarehouseCity = shippingResult.fulfillmentWarehouse?.city;
+      breakdown.fulfillmentWarehousePincode = shippingResult.fulfillmentWarehouse?.pincode;
+    }
 
     const isWarehouse = !!sellerItems[0]?.warehouseId && !sellerItems[0]?.sellerId;
     const actualSellerId = isWarehouse ? null : sellerId;
@@ -496,6 +572,7 @@ export async function buildCheckoutPricingSnapshot({
 
   const aggregateBreakdown = buildAggregateBreakdown(
     sellerBreakdownEntries.map((entry) => entry.breakdown),
+    shippingResult,
   );
 
   return {
@@ -511,6 +588,9 @@ export async function buildCheckoutPricingSnapshot({
     couponSnapshot: resolvedCouponSnapshot,
     coupon: resolvedCoupon,
     freeDeliveryApplied: applyFreeDelivery,
+    shippingResult,
+    shippingChargeEstimated: shippingResult?.shippingCharge,
+    shippingRateSource: shippingResult?.shippingRateSource,
   };
 }
 

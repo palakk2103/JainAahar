@@ -22,6 +22,12 @@ import { validateBody as validateWithJoi } from "../middleware/validate.js";
 export const previewCheckoutFinance = async (req, res) => {
   try {
     const payload = validateWithJoi(checkoutPreviewSchema, req.body || {});
+    const customerPincode =
+      payload.customerPincode ||
+      payload.pincode ||
+      payload.address?.pincode ||
+      null;
+
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: payload.items,
       address: payload.address,
@@ -40,6 +46,8 @@ export const previewCheckoutFinance = async (req, res) => {
       couponCode: payload.couponCode || null,
       couponId: payload.couponId || null,
       customerId: req.user?.id || null,
+      customerPincode,
+      paymentMode: payload.paymentMode || "COD",
     });
 
     const sellerBreakdowns = pricingSnapshot.sellerBreakdownEntries.map((entry) => ({

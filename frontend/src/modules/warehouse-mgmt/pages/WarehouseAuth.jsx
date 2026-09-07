@@ -14,7 +14,7 @@ const WarehouseAuth = () => {
     const { settings } = useSettings();
     const navigate = useNavigate();
 
-    const logoUrl = settings?.logoUrl || '/bg remove logo .png';
+    const logoUrl = settings?.logoUrl || '/jainaaharlogo-removebg-preview.png';
 
     // Form states
     const [loginData, setLoginData] = useState({

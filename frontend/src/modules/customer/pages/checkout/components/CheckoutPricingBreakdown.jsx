@@ -83,11 +83,37 @@ function CheckoutPricingBreakdown({
             <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
               Delivery Fee
             </span>
-            <span className="font-black text-slate-800">₹{deliveryFee}</span>
+            {isPreviewLoading ? (
+              <span className="text-xs text-slate-400 font-medium italic">Calculating...</span>
+            ) : pricingPreview?.shippingRateSource === "local_free" || (deliveryFee === 0 && pricingPreview?.isLocalDelivery) ? (
+              <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 text-sm">
+                FREE
+              </span>
+            ) : (
+              <span className="font-black text-slate-800">₹{deliveryFee}</span>
+            )}
           </div>
-          {pricingPreview &&
+          {pricingPreview?.shippingRateSource === "local_free" && (
+            <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-600">
+              <span>Same City Delivery (Free)</span>
+              {pricingPreview?.fulfillmentWarehouseCity && (
+                <span className="text-slate-400">from {pricingPreview.fulfillmentWarehouseCity}</span>
+              )}
+            </div>
+          )}
+          {pricingPreview?.shippingRateSource === "shiprocket" && (
+            <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-400">
+              <span>Standard Shipping ({pricingPreview.courierInfo?.name || "Shiprocket"})</span>
+              {pricingPreview?.totalShippingWeight && (
+                <span>{pricingPreview.totalShippingWeight} kg</span>
+              )}
+            </div>
+          )}
+          {!pricingPreview?.shippingRateSource &&
+            pricingPreview &&
             typeof pricingPreview.distanceKmActual === "number" &&
-            typeof pricingPreview.distanceKmRounded === "number" && (
+            typeof pricingPreview.distanceKmRounded === "number" &&
+            pricingPreview.distanceKmActual > 0 && (
               <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-400">
                 <span>
                   Distance: {pricingPreview.distanceKmActual.toFixed(2)} km
@@ -155,10 +181,10 @@ function CheckoutPricingBreakdown({
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
                 <span className="font-[1000] text-slate-800 text-lg uppercase tracking-tight">
-                  {finalAmountToPay === 0 ? "Fully Covered" : "Total Payable"}
+                  {walletAmountToUse > 0 && finalAmountToPay === 0 ? "Fully Covered" : "Total Payable"}
                 </span>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-                  {finalAmountToPay === 0 ? "Paid via Wallet" : "Safe & Secure Payment"}
+                  {walletAmountToUse > 0 && finalAmountToPay === 0 ? "Paid via Wallet" : "Safe & Secure Payment"}
                 </span>
               </div>
               <span className="font-[1000] text-primary text-3xl tracking-tighter italic">

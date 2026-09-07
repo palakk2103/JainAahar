@@ -435,11 +435,52 @@ const OrderDetail = () => {
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-black text-purple-900 uppercase tracking-widest flex items-center gap-2.5">
                                 <Truck className="h-4 w-4 text-purple-600" />
-                                Shiprocket Third-Party Delivery
+                                Shiprocket Delivery & Logistics
                             </h3>
                             <Badge className="bg-purple-100 text-purple-800 border-none text-[9px] font-black uppercase">
-                                {order.externalShipmentId ? "AWB GENERATED" : "READY TO BOOK"}
+                                {order.externalShipmentId ? "AWB GENERATED" : order.paymentBreakdown?.shippingRateSource === "local_free" ? "LOCAL FREE" : "READY TO BOOK"}
                             </Badge>
+                        </div>
+
+                        {/* Shipping Financial Details */}
+                        <div className="bg-white/80 p-3.5 rounded-xl border border-purple-100 space-y-2 mb-4 text-xs">
+                            <div className="flex justify-between items-center text-slate-600">
+                                <span className="font-bold">Shipping Rate Source:</span>
+                                <span className="font-black text-purple-700 uppercase">
+                                    {order.paymentBreakdown?.shippingRateSource || (order.paymentBreakdown?.isLocalDelivery ? "local_free" : "standard")}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-600">
+                                <span className="font-bold">Estimated Delivery Fee:</span>
+                                <span className="font-black text-slate-900">
+                                    ₹{order.paymentBreakdown?.shippingChargeEstimated ?? order.paymentBreakdown?.deliveryFeeCharged ?? order.pricing?.deliveryFee ?? 0}
+                                </span>
+                            </div>
+                            {order.paymentBreakdown?.shippingChargeFinal != null && (
+                                <div className="flex justify-between items-center text-slate-600">
+                                    <span className="font-bold">Final Shiprocket Charge:</span>
+                                    <span className="font-black text-slate-900">
+                                        ₹{order.paymentBreakdown.shippingChargeFinal}
+                                    </span>
+                                </div>
+                            )}
+                            {order.paymentBreakdown?.shippingChargeDifference != null && (
+                                <div className="flex justify-between items-center text-slate-600">
+                                    <span className="font-bold">Variance (Final - Est):</span>
+                                    <span className={`font-black ${order.paymentBreakdown.shippingChargeDifference > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                                        {order.paymentBreakdown.shippingChargeDifference > 0 ? `+₹${order.paymentBreakdown.shippingChargeDifference}` : `₹${order.paymentBreakdown.shippingChargeDifference}`}
+                                    </span>
+                                </div>
+                            )}
+                            {(order.paymentBreakdown?.fulfillmentWarehouseName || order.warehouseId?.warehouseName) && (
+                                <div className="flex justify-between items-center text-slate-600 pt-1 border-t border-purple-50">
+                                    <span className="font-bold">Fulfillment Warehouse:</span>
+                                    <span className="font-black text-slate-800">
+                                        {order.paymentBreakdown?.fulfillmentWarehouseName || order.warehouseId?.warehouseName || "Primary Warehouse"}
+                                        {order.paymentBreakdown?.fulfillmentWarehouseCity ? ` (${order.paymentBreakdown.fulfillmentWarehouseCity})` : ""}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {order.externalShipmentId ? (

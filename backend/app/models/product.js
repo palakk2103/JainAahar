@@ -150,7 +150,31 @@ const productSchema = new mongoose.Schema(
         isFeatured: {
             type: Boolean,
             default: false,
-        }
+        },
+        /** Shipping weight in kg (e.g. 0.5 = 500g). Used for Shiprocket rate calculation. */
+        shippingWeight: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
+        /** Shipping length in cm. Used for Shiprocket rate calculation. */
+        shippingLength: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
+        /** Shipping breadth/width in cm. Used for Shiprocket rate calculation. */
+        shippingBreadth: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
+        /** Shipping height in cm. Used for Shiprocket rate calculation. */
+        shippingHeight: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
     },
     { timestamps: true }
 );

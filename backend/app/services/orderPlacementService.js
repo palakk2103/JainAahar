@@ -426,6 +426,11 @@ export async function placeOrderAtomic({
     // from the server-hydrated cart, applying free-delivery rebates
     // server-side. When the flag is off, only `discountTotal` flows
     // through — preserving legacy bit-for-bit behaviour.
+    const customerPincode =
+      normalizedPayload.address?.pincode ||
+      normalizedPayload.pincode ||
+      null;
+
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: orderItemsInput,
       address: normalizedAddress,
@@ -435,6 +440,8 @@ export async function placeOrderAtomic({
       couponCode: normalizedPayload.couponCode || null,
       couponId: normalizedPayload.couponId || null,
       customerId,
+      customerPincode,
+      paymentMode,
       session,
     });
 

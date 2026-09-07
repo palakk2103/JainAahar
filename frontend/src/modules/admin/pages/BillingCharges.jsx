@@ -18,7 +18,7 @@ import { adminApi } from '../services/adminApi';
 const BillingCharges = () => {
     const { showToast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
-    const [deliveryMode, setDeliveryMode] = useState('distance'); // 'fixed' or 'distance'
+    const [deliveryMode, setDeliveryMode] = useState('distance'); // 'fixed', 'distance', or 'shiprocket_dynamic'
     const [returnDeliveryCommission, setReturnDeliveryCommission] = useState(0);
 
     const [config, setConfig] = useState({
@@ -33,6 +33,8 @@ const BillingCharges = () => {
         handlingFeeStrategy: "highest_category_fee",
         codEnabled: true,
         onlineEnabled: true,
+        defaultShippingWeightKg: 0.5,
+        shippingBuffer: 0,
     });
 
     useEffect(() => {
@@ -49,7 +51,13 @@ const BillingCharges = () => {
 
                 if (deliveryRes.data?.success && deliveryRes.data.result) {
                     const s = deliveryRes.data.result;
-                    setDeliveryMode(s.deliveryPricingMode === 'fixed_price' ? 'fixed' : 'distance');
+                    setDeliveryMode(
+                        s.deliveryPricingMode === 'shiprocket_dynamic'
+                            ? 'shiprocket_dynamic'
+                            : s.deliveryPricingMode === 'fixed_price'
+                            ? 'fixed'
+                            : 'distance'
+                    );
                     setConfig((prev) => ({
                         ...prev,
                         baseCharge: s.customerBaseDeliveryFee ?? s.baseDeliveryCharge ?? prev.baseCharge,
@@ -61,6 +69,8 @@ const BillingCharges = () => {
                         handlingFeeStrategy: s.handlingFeeStrategy ?? prev.handlingFeeStrategy,
                         codEnabled: s.codEnabled ?? prev.codEnabled,
                         onlineEnabled: s.onlineEnabled ?? prev.onlineEnabled,
+                        defaultShippingWeightKg: s.defaultShippingWeightKg ?? 0.5,
+                        shippingBuffer: s.shippingBuffer ?? 0,
                     }));
                 }
             } catch (error) {
@@ -73,12 +83,21 @@ const BillingCharges = () => {
     const handleSave = async () => {
         try {
             setIsSaving(true);
+            const resolvedMode =
+                deliveryMode === 'shiprocket_dynamic'
+                    ? 'shiprocket_dynamic'
+                    : deliveryMode === 'fixed'
+                    ? 'fixed_price'
+                    : 'distance_based';
+
             await Promise.all([
                 adminApi.updatePlatformSettings({
                     returnDeliveryCommission,
+                    platformFee: config.platformFee,
+                    freeDeliveryThreshold: config.freeDeliveryThreshold,
                 }),
                 adminApi.updateDeliveryFinanceSettings({
-                    deliveryPricingMode: deliveryMode === 'fixed' ? 'fixed_price' : 'distance_based',
+                    deliveryPricingMode: resolvedMode,
                     customerBaseDeliveryFee: config.baseCharge,
                     riderBasePayout: config.riderBasePayout,
                     baseDeliveryCharge: config.baseCharge,
@@ -90,13 +109,15 @@ const BillingCharges = () => {
                     handlingFeeStrategy: config.handlingFeeStrategy,
                     codEnabled: config.codEnabled,
                     onlineEnabled: config.onlineEnabled,
+                    defaultShippingWeightKg: config.defaultShippingWeightKg,
+                    shippingBuffer: config.shippingBuffer,
                 }),
             ]);
 
-            showToast('Delivery finance settings updated', 'success');
+            showToast('Delivery finance settings updated successfully!', 'success');
         } catch (error) {
             console.error('Failed to update platform settings', error);
-            showToast('Failed to update fees settings', 'error');
+            showToast(error.response?.data?.message || error.message || 'Failed to update fees settings', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -197,19 +218,78 @@ const BillingCharges = () => {
                                 <Truck className="h-4 w-4 text-brand-500" />
                                 Delivery Fee Settings
                             </h3>
-                            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-                                <button
-                                    onClick={() => setDeliveryMode('fixed')}
-                                    className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", deliveryMode === 'fixed' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
-                                >Fixed Price</button>
+                            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 gap-1 flex-wrap">
                                 <button
                                     onClick={() => setDeliveryMode('distance')}
-                                    className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", deliveryMode === 'distance' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
+                                    className={cn("px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", deliveryMode === 'distance' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
                                 >Distance Based</button>
+                                <button
+                                    onClick={() => setDeliveryMode('fixed')}
+                                    className={cn("px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", deliveryMode === 'fixed' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
+                                >Fixed Price</button>
+                                <button
+                                    onClick={() => setDeliveryMode('shiprocket_dynamic')}
+                                    className={cn("px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", deliveryMode === 'shiprocket_dynamic' ? "bg-purple-600 text-white shadow-sm" : "text-purple-700 bg-purple-50 hover:bg-purple-100")}
+                                >🚀 Shiprocket Dynamic</button>
                             </div>
                         </div>
                         <div className="p-8">
-                            {deliveryMode === 'distance' ? (
+                            {deliveryMode === 'shiprocket_dynamic' ? (
+                                <>
+                                    <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5 mb-8 flex gap-4">
+                                        <Truck className="h-6 w-6 text-purple-600 shrink-0 mt-0.5" />
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-black text-purple-900 uppercase tracking-tight">
+                                                Shiprocket Live Dynamic Courier Pricing Active
+                                            </p>
+                                            <p className="text-[11px] font-bold text-purple-700 leading-relaxed">
+                                                • <strong>Local Same-City Orders:</strong> Automatically detected via PIN/city and charged <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">FREE (₹0)</span>.<br />
+                                                • <strong>Inter-City / Outstation Orders:</strong> Live rates fetched in real-time from Shiprocket serviceability API based on package weight and customer PIN code.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Default Package Weight (kg)
+                                            </label>
+                                            <div className="relative group">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min="0.1"
+                                                    value={config.defaultShippingWeightKg}
+                                                    onChange={(e) => handleInputChange('defaultShippingWeightKg', e.target.value)}
+                                                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                                />
+                                                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase">kg</span>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-slate-400 italic">
+                                                Fallback weight used when a product does not specify its own shipping weight.
+                                            </p>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Shipping Markup / Buffer (₹)
+                                            </label>
+                                            <div className="relative group">
+                                                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-slate-300 group-focus-within:text-purple-600 transition-colors">₹</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={config.shippingBuffer}
+                                                    onChange={(e) => handleInputChange('shippingBuffer', e.target.value)}
+                                                    className="w-full pl-10 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] font-bold text-slate-400 italic">
+                                                Optional extra amount added on top of the raw Shiprocket quote (for packaging/handling).
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : deliveryMode === 'distance' ? (
                                 <>
                                     <div className="bg-brand-50 border border-brand-100 rounded-2xl p-4 mb-8 flex gap-4">
                                         <MapPin className="h-5 w-5 text-brand-500 shrink-0 mt-0.5" />

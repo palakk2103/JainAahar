@@ -149,6 +149,18 @@ const settingSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        /** Default shipping weight in kg for Shiprocket rate calculation when product lacks shippingWeight */
+        defaultShippingWeightKg: {
+            type: Number,
+            default: 0.5,
+            min: 0.1,
+        },
+        /** Optional buffer amount (₹) added to Shiprocket estimated rate. 0 = no buffer */
+        shippingBuffer: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
         onlineEnabled: {
             type: Boolean,
             default: true,

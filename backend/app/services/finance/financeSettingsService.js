@@ -16,6 +16,8 @@ const DEFAULT_FINANCE_SETTINGS = {
   handlingFeeStrategy: HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
   codEnabled: true,
   onlineEnabled: true,
+  defaultShippingWeightKg: 0.5,
+  shippingBuffer: 0,
 };
 
 export function normalizeFinanceSettings(raw = {}) {
@@ -69,6 +71,12 @@ export function normalizeFinanceSettings(raw = {}) {
     handlingFeeStrategy,
     codEnabled: raw.codEnabled ?? DEFAULT_FINANCE_SETTINGS.codEnabled,
     onlineEnabled: raw.onlineEnabled ?? DEFAULT_FINANCE_SETTINGS.onlineEnabled,
+    defaultShippingWeightKg: Number(
+      raw.defaultShippingWeightKg ?? DEFAULT_FINANCE_SETTINGS.defaultShippingWeightKg,
+    ),
+    shippingBuffer: roundCurrency(
+      raw.shippingBuffer ?? DEFAULT_FINANCE_SETTINGS.shippingBuffer,
+    ),
   };
 }
 

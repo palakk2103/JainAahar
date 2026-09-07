@@ -493,6 +493,24 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
     throw new Error("Associated order not found for Shiprocket shipment");
   }
 
+  const productIds = (fulfillmentDoc.items || [])
+    .map((item) => item.product?._id || item.product)
+    .filter(Boolean);
+  const products = await Product.find({ _id: { $in: productIds } })
+    .select("shippingWeight")
+    .lean();
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+  let totalWeight = 0;
+  for (const item of fulfillmentDoc.items || []) {
+    const pid = String(item.product?._id || item.product);
+    const p = productMap.get(pid);
+    const qty = Number(item.pickedQty || item.requiredQty || 1);
+    const weight = Number(p?.shippingWeight || 0.5);
+    totalWeight += weight * qty;
+  }
+  if (totalWeight <= 0) totalWeight = 0.5;
+
   const context = {
     orderId: fulfillmentDoc.orderId || order.orderId,
     pickup: {
@@ -521,7 +539,7 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
     })),
     paymentMode: order.paymentMode || "COD",
     totalValue: Number(order.paymentBreakdown?.grandTotal || order.pricing?.total || 100),
-    weight: 0.5,
+    weight: totalWeight,
   };
 
   const shipmentResult = await shiprocketProvider.createShipment(context);
@@ -533,6 +551,25 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
   fulfillmentDoc.shipmentStatus = shipmentResult.providerStatus || "SHIPMENT_CREATED";
 
   await fulfillmentDoc.save();
+
+  // Reconcile shipping charges if final rate returned by provider
+  try {
+    const finalShippingCharge = Number(
+      shipmentResult.cost || shipmentResult.charge || shipmentResult.raw?.rate || 0,
+    );
+    if (finalShippingCharge > 0) {
+      const estimatedCharge = Number(order.paymentBreakdown?.shippingChargeEstimated || 0);
+      const difference = Number((finalShippingCharge - estimatedCharge).toFixed(2));
+      await Order.findByIdAndUpdate(order._id, {
+        $set: {
+          "paymentBreakdown.shippingChargeFinal": finalShippingCharge,
+          "paymentBreakdown.shippingChargeDifference": difference,
+        },
+      });
+    }
+  } catch (reconcileErr) {
+    logger.warn(`[WarehouseFulfillment] Error updating shipping charge reconciliation: ${reconcileErr.message}`);
+  }
 
   // Notify customer via WhatsApp (Non-blocking)
   setImmediate(async () => {

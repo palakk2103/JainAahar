@@ -61,6 +61,8 @@ const orderSchema = new mongoose.Schema(
       name: String,
       address: String,
       city: String,
+      state: String,
+      pincode: String,
       phone: String,
       landmark: String,
       location: {
@@ -251,6 +253,23 @@ const orderSchema = new mongoose.Schema(
       walletAmount: { type: Number, default: 0 },
       distanceKmActual: { type: Number, default: 0 },
       distanceKmRounded: { type: Number, default: 0 },
+      // Shiprocket dynamic shipping charge tracking
+      shippingChargeEstimated: { type: Number, default: 0 },
+      shippingChargeFinal: { type: Number, default: null },
+      shippingChargeDifference: { type: Number, default: null },
+      shippingRateSource: {
+        type: String,
+        enum: ["local_free", "shiprocket", "distance_based", "fixed_price", null],
+        default: null,
+      },
+      shippingCalculatedAt: { type: Date, default: null },
+      fulfillmentWarehouseId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Warehouse",
+        default: null,
+      },
+      fulfillmentWarehouseName: { type: String, default: null },
+      fulfillmentWarehouseCity: { type: String, default: null },
       snapshots: {
         deliverySettings: { type: Object, default: {} },
         categoryCommissionSettings: { type: Array, default: [] },

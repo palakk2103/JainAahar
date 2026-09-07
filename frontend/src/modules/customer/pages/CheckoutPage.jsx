@@ -188,6 +188,10 @@ const CheckoutPage = () => {
     city: "",
     state: "",
     pincode: "",
+    /** @type {{ lat: number, lng: number } | null} */
+    location: null,
+    placeId: null,
+    formattedAddress: null,
   });
 
   const [editAddressForm, setEditAddressForm] = useState({
@@ -200,6 +204,10 @@ const CheckoutPage = () => {
     city: "",
     state: "",
     pincode: "",
+    /** @type {{ lat: number, lng: number } | null} */
+    location: null,
+    placeId: null,
+    formattedAddress: null,
   });
 
   const [showRecipientForm, setShowRecipientForm] = useState(false);
@@ -318,26 +326,44 @@ const CheckoutPage = () => {
     }
   }, [paymentMethods, selectedPayment]);
 
+  const grossOrderTotal = Number(
+    pricingPreview?.grandTotal ??
+      Math.max(
+        0,
+        (cartTotal || 0) +
+          Number(pricingPreview?.deliveryFeeCharged || 0) +
+          Number(pricingPreview?.handlingFeeCharged || 0) +
+          Number(pricingPreview?.taxTotal || 0) +
+          Number(selectedTip || 0) -
+          Number(discountAmount || 0)
+      )
+  );
+
   useEffect(() => {
-    if (useWallet && user?.walletBalance && pricingPreview?.grandTotal) {
+    if (useWallet && user?.walletBalance && grossOrderTotal > 0) {
       const maxAvailable = Number(user.walletBalance || 0);
-      const totalToPay = Number(pricingPreview.grandTotal || 0);
+      const totalToPay = grossOrderTotal;
       setWalletAmountToUse(Math.min(maxAvailable, totalToPay));
     } else {
       setWalletAmountToUse(0);
     }
-  }, [useWallet, user?.walletBalance, pricingPreview?.grandTotal]);
+  }, [useWallet, user?.walletBalance, grossOrderTotal]);
 
-  const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal || 0) - walletAmountToUse);
+  const finalAmountToPay = Math.max(0, grossOrderTotal - walletAmountToUse);
 
   const buildAddressForOrder = () => {
     if (savedRecipient) {
+      const recPin =
+        savedRecipient.pincode ||
+        savedRecipient.completeAddress?.match(/\b(\d{6})\b/)?.[1] ||
+        "";
       return {
         type: "Other",
         name: savedRecipient.name,
         address: savedRecipient.completeAddress,
         landmark: savedRecipient.landmark || "",
-        city: savedRecipient.pincode ? `${savedRecipient.pincode}` : "",
+        city: savedRecipient.city || recPin || "",
+        pincode: recPin,
         phone: savedRecipient.phone,
         location:
           currentLocation?.latitude && currentLocation?.longitude
@@ -358,8 +384,27 @@ const CheckoutPage = () => {
       Number.isFinite(addrLoc.lat) &&
       Number.isFinite(addrLoc.lng);
 
+    // Extract 6-digit pincode dynamically from address string or city or explicit pincode
+    const pinFromAddress =
+      (typeof currentAddress.address === "string" ? currentAddress.address.match(/\b(\d{6})\b/)?.[1] : null) ||
+      (typeof currentAddress.city === "string" ? currentAddress.city.match(/\b(\d{6})\b/)?.[1] : null);
+
+    const resolvedPincode =
+      pinFromAddress ||
+      currentAddress.pincode ||
+      currentLocation?.pincode ||
+      "";
+
+    // Clean city to avoid carrying over "Indore" when user types a new address
+    let resolvedCity = currentAddress.city || "";
+    if (resolvedCity.includes("-")) {
+      resolvedCity = resolvedCity.split("-")[0].trim();
+    }
+
     return {
       ...currentAddress,
+      city: resolvedCity,
+      pincode: resolvedPincode,
       location: hasAddrLoc ? { lat: addrLoc.lat, lng: addrLoc.lng } : undefined,
     };
   };
@@ -434,6 +479,9 @@ const CheckoutPage = () => {
       city: currentLocation?.city || "Indore",
       state: currentLocation?.state || "Madhya Pradesh",
       pincode: currentLocation?.pincode || "",
+      location: null,
+      placeId: null,
+      formattedAddress: null,
     });
     setIsAddressModalOpen(false);
     setIsAddAddressOpen(true);
@@ -455,6 +503,9 @@ const CheckoutPage = () => {
       city: currentAddress.city || "",
       state: currentAddress.state || "",
       pincode: currentAddress.pincode || "",
+      location: currentAddress.location || null,
+      placeId: currentAddress.placeId || null,
+      formattedAddress: currentAddress.formattedAddress || null,
     });
     setIsEditAddressOpen(true);
   };
@@ -470,6 +521,10 @@ const CheckoutPage = () => {
         city: loc.city || prev.city,
         state: loc.state || prev.state,
         pincode: loc.pincode || prev.pincode,
+        location:
+          typeof loc.latitude === "number" && typeof loc.longitude === "number"
+            ? { lat: loc.latitude, lng: loc.longitude }
+            : null,
       }));
       showToast("Live location detected", "success");
     } else if (currentLocation?.name) {
@@ -479,6 +534,10 @@ const CheckoutPage = () => {
         city: currentLocation.city || prev.city,
         state: currentLocation.state || prev.state,
         pincode: currentLocation.pincode || prev.pincode,
+        location:
+          typeof currentLocation.latitude === "number" && typeof currentLocation.longitude === "number"
+            ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+            : null,
       }));
       showToast("Using current location", "success");
     } else {
@@ -498,6 +557,11 @@ const CheckoutPage = () => {
 
     if (!address) {
       showToast("Please enter complete delivery address", "error");
+      return;
+    }
+
+    if (pincode && pincode.length !== 6) {
+      showToast("Please enter a valid 6-digit PIN code (e.g. 560001)", "error");
       return;
     }
 
@@ -689,9 +753,22 @@ const CheckoutPage = () => {
       return;
     }
 
+    const pinFromText =
+      editAddressForm.pincode?.trim() ||
+      editAddressForm.address?.match(/\b(\d{6})\b/)?.[1] ||
+      editAddressForm.city?.match(/\b(\d{6})\b/)?.[1] ||
+      "";
+
+    let editCity = editAddressForm.city?.trim() || "";
+    if (editCity.includes("-")) {
+      editCity = editCity.split("-")[0].trim();
+    }
+
     const updated = {
       ...currentAddress,
       ...editAddressForm,
+      city: editCity,
+      pincode: pinFromText || currentAddress?.pincode || "",
     };
 
     // INSTANT UI UPDATE
@@ -948,6 +1025,7 @@ const CheckoutPage = () => {
         image: item.image,
       })),
       address: orderAddress || undefined,
+      customerPincode: orderAddress?.pincode || currentAddress?.pincode || currentLocation?.pincode || undefined,
       discountTotal: discountAmount,
       taxTotal: 0,
       tipAmount: selectedTip,
@@ -1381,9 +1459,11 @@ const CheckoutPage = () => {
                 text={
                   !hasValidAddress
                     ? "Add Address to Order"
-                    : finalAmountToPay === 0
-                      ? "Place Free Order"
-                      : "Order Now"
+                    : walletAmountToUse > 0 && finalAmountToPay === 0
+                      ? "Pay via Wallet (₹0)"
+                      : finalAmountToPay === 0
+                        ? "Place Free Order"
+                        : "Order Now"
                 }
               />
               <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
@@ -1404,9 +1484,11 @@ const CheckoutPage = () => {
             text={
               !hasValidAddress
                 ? "Add Address to Proceed"
-                : finalAmountToPay === 0
-                  ? "Place Free Order"
-                  : "Slide to Pay"
+                : walletAmountToUse > 0 && finalAmountToPay === 0
+                  ? "Pay via Wallet (₹0)"
+                  : finalAmountToPay === 0
+                    ? "Place Free Order"
+                    : "Slide to Pay"
             }
           />
         </div>
@@ -1740,14 +1822,35 @@ const CheckoutPage = () => {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">City / Pincode</Label>
-              <Input
-                value={editAddressForm.city}
-                onChange={(e) => setEditAddressForm((p) => ({ ...p, city: e.target.value }))}
-                placeholder="City - Pincode"
-                className="h-10 rounded-xl"
-              />
+            {/* City, State & Pincode */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">City</Label>
+                <Input
+                  value={editAddressForm.city}
+                  onChange={(e) => setEditAddressForm((p) => ({ ...p, city: e.target.value }))}
+                  placeholder="City"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">State</Label>
+                <Input
+                  value={editAddressForm.state}
+                  onChange={(e) => setEditAddressForm((p) => ({ ...p, state: e.target.value }))}
+                  placeholder="State"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Pincode</Label>
+                <Input
+                  value={editAddressForm.pincode}
+                  onChange={(e) => setEditAddressForm((p) => ({ ...p, pincode: e.target.value }))}
+                  placeholder="6-digit PIN"
+                  className="h-10 rounded-xl"
+                />
+              </div>
             </div>
           </div>
 

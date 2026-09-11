@@ -4,7 +4,7 @@ import Warehouse from "../models/warehouse.js";
 import OtpVerification from "../models/otpVerification.js";
 import { getRedisClient } from "../config/redis.js";
 import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
-import { MOCK_OTP, useRealSMS } from "../utils/otp.js";
+import { MOCK_OTP, useRealSMS, isMockOtpEnabled } from "../utils/otp.js";
 import { sendSellerVerificationOtpEmail, useRealEmailOTP } from "./emailService.js";
 
 const WAREHOUSE_SIGNUP_PURPOSE = "warehouse_signup";
@@ -51,6 +51,9 @@ function randomOtp(length) {
 }
 
 function generateWarehouseOtp(channel) {
+  if (isMockOtpEnabled()) {
+    return MOCK_OTP;
+  }
   const production = process.env.NODE_ENV === "production";
   const useRealDelivery =
     channel === "email" ? useRealEmailOTP() : useRealSMS();

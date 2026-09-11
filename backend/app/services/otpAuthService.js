@@ -2,7 +2,7 @@ import crypto from "crypto";
 import Customer from "../models/customer.js";
 import Employee from "../models/employee.js";
 import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
-import { generateOTP, useRealSMS } from "../utils/otp.js";
+import { generateOTP, useRealSMS, isMockOtpEnabled, MOCK_OTP } from "../utils/otp.js";
 import { getRedisClient } from "../config/redis.js";
 import { isValidE164Phone, maskPhone, normalizePhoneNumber } from "../utils/phone.js";
 import { sendCustomerOtpEmail } from "./emailService.js";
@@ -171,7 +171,7 @@ export async function issueCustomerOtp({
       throw err;
     }
 
-    let otp = isTest ? "1234" : generateOTP();
+    let otp = (isTest || isMockOtpEnabled()) ? (MOCK_OTP || "1234") : generateOTP();
     customer.otpHash = hashOtp(email, otp);
     customer.otpExpiresAt = new Date(now.getTime() + (isTest ? 60 : OTP_EXPIRY_MINUTES()) * 60 * 1000);
     customer.otpFailedAttempts = 0;
@@ -183,7 +183,7 @@ export async function issueCustomerOtp({
 
     await customer.save();
 
-    if (!isTest) {
+    if (!isTest && !isMockOtpEnabled()) {
       await sendCustomerOtpEmail({
         email,
         otp,
@@ -248,7 +248,7 @@ export async function issueCustomerOtp({
     throw err;
   }
 
-  let otp = isTest ? "1234" : generateOTP();
+  let otp = (isTest || isMockOtpEnabled()) ? (MOCK_OTP || "1234") : generateOTP();
   customer.otpHash = hashOtp(phone, otp);
   customer.otpExpiresAt = new Date(now.getTime() + (isTest ? 60 : OTP_EXPIRY_MINUTES()) * 60 * 1000);
   customer.otpFailedAttempts = 0;
@@ -262,7 +262,7 @@ export async function issueCustomerOtp({
 
   await customer.save();
 
-  if (!isTest && useRealSMS()) {
+  if (!isTest && !isMockOtpEnabled() && useRealSMS()) {
     await dispatchCustomerOtpSms({ phone, otp });
     otpAuditLog("customer_otp_sms_dispatched", {
       phone: maskPhone(phone),

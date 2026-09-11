@@ -20,6 +20,7 @@ import {
 } from "../services/deliveryOtpService.js";
 import { emitToCustomer, emitToSeller } from "../services/orderSocketEmitter.js";
 import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
+import { useRealSMS } from "../utils/otp.js";
 import { creditWallet } from "../services/finance/walletService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
@@ -302,7 +303,7 @@ export const requestReturnPickupOtp = async (req, res) => {
           try {
             const customerObj = await Customer.findById(customerId).lean();
             const phone = customerObj?.phone || order.address?.phone;
-            if (phone) {
+            if (phone && useRealSMS()) {
               await sendSmsIndiaHubOtp({
                 phone,
                 otp: result.otp,
@@ -453,7 +454,7 @@ export const requestReturnDropOtp = async (req, res) => {
         setImmediate(async () => {
           try {
             const sellerPhone = order.seller?.phone;
-            if (sellerPhone) {
+            if (sellerPhone && useRealSMS()) {
               await sendSmsIndiaHubOtp({
                 phone: sellerPhone,
                 otp: result.otp,

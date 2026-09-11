@@ -4,7 +4,7 @@ import Seller from "../models/seller.js";
 import OtpVerification from "../models/otpVerification.js";
 import { getRedisClient } from "../config/redis.js";
 import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
-import { MOCK_OTP, useRealSMS } from "../utils/otp.js";
+import { MOCK_OTP, useRealSMS, isMockOtpEnabled } from "../utils/otp.js";
 import { sendSellerVerificationOtpEmail, useRealEmailOTP } from "./emailService.js";
 
 const SELLER_SIGNUP_PURPOSE = "seller_signup";
@@ -51,6 +51,9 @@ function randomOtp(length) {
 }
 
 function generateSellerOtp(channel) {
+  if (isMockOtpEnabled()) {
+    return MOCK_OTP;
+  }
   const production = process.env.NODE_ENV === "production";
   const useRealDelivery =
     channel === "email" ? useRealEmailOTP() : useRealSMS();

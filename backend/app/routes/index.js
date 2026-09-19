@@ -33,6 +33,7 @@ import employeeRoute from "./employeeRoutes.js";
 import translationRoute from "./translationRoutes.js";
 import whatsappRoute from "./whatsappRoutes.js";
 import whatsappWebhookRoute from "./whatsappWebhookRoutes.js";
+import dealSectionRoute from "./dealSectionRoutes.js";
 
 import express from "express";
 
@@ -81,6 +82,7 @@ const setupRoutes = (app) => {
     router.use("/", experienceRoute);
     router.use("/", offerRoute);
     router.use("/", couponRoute);
+    router.use("/", dealSectionRoute);
     router.use("/notifications", notificationRoute);
     router.use("/auth/otp", authOtpRoute);
     router.use("/push", pushRoute);

@@ -187,6 +187,10 @@ export const customerApi = {
   getOfferSections: (params, options) =>
     getWithDedupe("/offer-sections", params, { ttl: 10000, ...options }),
 
+  // Deal Sections (Today's Deals, Lowest Price Ever, Trending Products, Best Value Deals)
+  getDealSections: (params, options) =>
+    getWithDedupe("/deals/sections", params, { ttl: 10000, ...options }),
+
   // Coupons
   validateCoupon: (data) => axiosInstance.post("/coupons/validate", data),
   getActiveCoupons: () => getWithDedupe("/coupons", { status: "active" }),

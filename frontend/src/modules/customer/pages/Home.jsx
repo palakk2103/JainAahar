@@ -46,6 +46,24 @@ import LowestPriceSection from "../components/home/LowestPriceSection";
 import OfferSections from "../components/home/OfferSections";
 import MonthlyBasketSection from "../components/home/MonthlyBasketSection";
 
+const DEAL_ICONS = {
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+  Flame,
+};
+
+const getMergedSectionProducts = (secProducts = [], fallbackProducts = []) => {
+  if (!secProducts || secProducts.length === 0) {
+    return fallbackProducts || [];
+  }
+  const assignedIds = new Set(secProducts.map((p) => String(p._id || p.id)));
+  const remainingProducts = (fallbackProducts || []).filter(
+    (p) => !assignedIds.has(String(p._id || p.id))
+  );
+  return [...secProducts, ...remainingProducts];
+};
+
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
   shadow: "shadow-brand-500/20",
@@ -229,6 +247,7 @@ const Home = () => {
   const [subcategoryMap, setSubcategoryMap] = useState(() => cachedHomePageData?.subcategoryMap || {});
   const [pendingReturn, setPendingReturn] = useState(null);
   const [offerSections, setOfferSections] = useState(() => cachedHomePageData?.offerSections || []);
+  const [dealSections, setDealSections] = useState(() => cachedHomePageData?.dealSections || []);
   const [noServiceData, setNoServiceData] = useState(null);
 
   const [displayCategories, setDisplayCategories] = useState(categories);
@@ -237,6 +256,7 @@ const Home = () => {
   const [displayCategoryMap, setDisplayCategoryMap] = useState(categoryMap);
   const [displaySubcategoryMap, setDisplaySubcategoryMap] = useState(subcategoryMap);
   const [displayOfferSections, setDisplayOfferSections] = useState(offerSections);
+  const [displayDealSections, setDisplayDealSections] = useState(dealSections);
   const [displayExperienceSections, setDisplayExperienceSections] = useState(experienceSections);
   const [displayHeaderSections, setDisplayHeaderSections] = useState(headerSections);
 
@@ -248,6 +268,7 @@ const Home = () => {
       setDisplayCategoryMap(categoryMap);
       setDisplaySubcategoryMap(subcategoryMap);
       setDisplayOfferSections(offerSections);
+      setDisplayDealSections(dealSections);
       setDisplayExperienceSections(experienceSections);
       setDisplayHeaderSections(headerSections);
       return;
@@ -281,6 +302,7 @@ const Home = () => {
           setDisplayCategoryMap(txCatMap);
           setDisplaySubcategoryMap(txSubcatMap);
           setDisplayOfferSections(txOfferSections);
+          setDisplayDealSections(dealSections);
           setDisplayExperienceSections(txExperienceSections);
           setDisplayHeaderSections(txHeaderSections);
         }
@@ -301,6 +323,7 @@ const Home = () => {
     categoryMap,
     subcategoryMap,
     offerSections,
+    dealSections,
     experienceSections,
     headerSections,
   ]);
@@ -328,6 +351,7 @@ const Home = () => {
     const prods = data.products || [];
     const expSecs = data.experienceSections || [];
     const offSecs = data.offerSections || [];
+    const dealSecs = data.dealSections || [];
 
     setCategoryMap(catMap);
     setSubcategoryMap(subMap);
@@ -342,6 +366,7 @@ const Home = () => {
     setProducts(prods);
     setExperienceSections(expSecs);
     setOfferSections(offSecs);
+    setDealSections(dealSecs);
 
     if (language === "en") {
       setDisplayCategories(cats);
@@ -350,6 +375,7 @@ const Home = () => {
       setDisplayCategoryMap(catMap);
       setDisplaySubcategoryMap(subMap);
       setDisplayOfferSections(offSecs);
+      setDisplayDealSections(dealSecs);
       setDisplayExperienceSections(expSecs);
     }
 
@@ -391,17 +417,19 @@ const Home = () => {
         ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
         : {};
 
-      const [catResult, prodResult, expResult, sectionsResult] = await Promise.allSettled([
+      const [catResult, prodResult, expResult, sectionsResult, dealResult] = await Promise.allSettled([
         customerApi.getCategories(),
         customerApi.getProducts(productParams),
         customerApi.getExperienceSections({ pageType: "home" }),
         customerApi.getOfferSections(sectionParams),
+        customerApi.getDealSections(),
       ]);
 
       const catRes = catResult.status === "fulfilled" ? catResult.value : null;
       const prodRes = prodResult.status === "fulfilled" ? prodResult.value : null;
       const expRes = expResult.status === "fulfilled" ? expResult.value : null;
       const sectionsRes = sectionsResult.status === "fulfilled" ? sectionsResult.value : null;
+      const dealRes = dealResult.status === "fulfilled" ? dealResult.value : null;
 
       const nextHomeData = {
         categories: [ALL_CATEGORY],
@@ -448,6 +476,8 @@ const Home = () => {
       if (expRes?.data?.success) nextHomeData.experienceSections = Array.isArray(expRes.data.result || expRes.data.results) ? (expRes.data.result || expRes.data.results) : [];
       const sectionsList = sectionsRes?.data?.results || sectionsRes?.data?.result || sectionsRes?.data;
       nextHomeData.offerSections = Array.isArray(sectionsList) ? sectionsList : [];
+      const dealsList = dealRes?.data?.results || dealRes?.data?.result || dealRes?.data;
+      nextHomeData.dealSections = Array.isArray(dealsList) ? dealsList : [];
       applyHomePageData(nextHomeData, { cacheKey });
     } catch (error) { console.error("Error:", error); } finally { setIsLoading(false); }
   };
@@ -785,46 +815,67 @@ const Home = () => {
 
         {isAllCategory ? (
           <>
-            {/* Today's Deals & Additional Deals Sections */}
-            <LowestPriceSection
-              title="Today's Deals"
-              icon={ShoppingBag}
-              iconBg="bg-orange-50"
-              iconColor="text-[#FF8200]"
-              hasTimer={true}
-              products={displayProducts}
-              onSeeAll={() => navigate("/category/all")}
-            />
-
-            <LowestPriceSection
-              title="Lowest Price Ever"
-              icon={Sparkles}
-              iconBg="bg-emerald-50"
-              iconColor="text-emerald-600"
-              hasTimer={false}
-              products={displayProducts}
-              onSeeAll={() => navigate("/category/all")}
-            />
-
-            <LowestPriceSection
-              title="Trending Products"
-              icon={TrendingUp}
-              iconBg="bg-blue-50"
-              iconColor="text-blue-600"
-              hasTimer={false}
-              products={displayProducts}
-              onSeeAll={() => navigate("/category/all")}
-            />
-
-            <LowestPriceSection
-              title="Best Value Deals"
-              icon={Flame}
-              iconBg="bg-rose-50"
-              iconColor="text-rose-600"
-              hasTimer={false}
-              products={displayProducts}
-              onSeeAll={() => navigate("/category/all")}
-            />
+            {/* Dynamic Deals & Highlights Sections */}
+            {displayDealSections && displayDealSections.length > 0 ? (
+              displayDealSections.map((sec) => {
+                if (sec.status === "inactive") return null;
+                const secProducts = sec.products || [];
+                const effectiveProducts = getMergedSectionProducts(secProducts, displayProducts);
+                if (!effectiveProducts || effectiveProducts.length === 0) return null;
+                const IconComponent = DEAL_ICONS[sec.iconName] || ShoppingBag;
+                return (
+                  <LowestPriceSection
+                    key={sec._id || sec.sectionKey}
+                    title={sec.title}
+                    icon={IconComponent}
+                    iconBg={sec.iconBg || "bg-orange-50"}
+                    iconColor={sec.iconColor || "text-[#FF8200]"}
+                    hasTimer={Boolean(sec.hasTimer)}
+                    products={effectiveProducts}
+                    onSeeAll={() => navigate("/category/all")}
+                  />
+                );
+              })
+            ) : (
+              <>
+                <LowestPriceSection
+                  title="Today's Deals"
+                  icon={ShoppingBag}
+                  iconBg="bg-orange-50"
+                  iconColor="text-[#FF8200]"
+                  hasTimer={true}
+                  products={displayProducts}
+                  onSeeAll={() => navigate("/category/all")}
+                />
+                <LowestPriceSection
+                  title="Lowest Price Ever"
+                  icon={Sparkles}
+                  iconBg="bg-emerald-50"
+                  iconColor="text-emerald-600"
+                  hasTimer={false}
+                  products={displayProducts}
+                  onSeeAll={() => navigate("/category/all")}
+                />
+                <LowestPriceSection
+                  title="Trending Products"
+                  icon={TrendingUp}
+                  iconBg="bg-blue-50"
+                  iconColor="text-blue-600"
+                  hasTimer={false}
+                  products={displayProducts}
+                  onSeeAll={() => navigate("/category/all")}
+                />
+                <LowestPriceSection
+                  title="Best Value Deals"
+                  icon={Flame}
+                  iconBg="bg-rose-50"
+                  iconColor="text-rose-600"
+                  hasTimer={false}
+                  products={displayProducts}
+                  onSeeAll={() => navigate("/category/all")}
+                />
+              </>
+            )}
 
             <MonthlyBasketSection />
             <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />

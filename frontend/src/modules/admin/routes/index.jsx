@@ -24,7 +24,12 @@ import {
   AlertTriangle,
   UserCheck,
   MessageSquare,
+  Flame,
 } from "lucide-react";
+
+const DealSectionManager = React.lazy(
+  () => import("../pages/DealSectionManager")
+);
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
 const CategoryManagement = React.lazy(
@@ -203,6 +208,17 @@ const navItems = [
     ],
   },
   {
+    label: "Deals & Highlights",
+    icon: Flame,
+    color: "orange",
+    children: [
+      { label: "Today's Deals", path: "/admin/deals/todays-deals" },
+      { label: "Lowest Price Ever", path: "/admin/deals/lowest-price-ever" },
+      { label: "Trending Products", path: "/admin/deals/trending-products" },
+      { label: "Best Value Deals", path: "/admin/deals/best-value-deals" },
+    ],
+  },
+  {
     label: "Customer Support",
     icon: Receipt,
     color: "emerald",
@@ -277,6 +293,8 @@ const AdminRoutes = () => {
         <Route path="/monthly-baskets/banners" element={<MonthlyBasketBanners />} />
         <Route path="/monthly-baskets/approvals" element={<MonthlyBasketApprovals />} />
         
+        <Route path="/deals" element={<Navigate to="/admin/deals/todays-deals" replace />} />
+        <Route path="/deals/:sectionKey" element={<DealSectionManager />} />
         <Route path="/experience-studio" element={<ContentManager />} />
         <Route path="/hero-categories" element={<HeroCategoriesPerPage />} />
         <Route path="/notifications" element={<NotificationComposer />} />

@@ -59,6 +59,11 @@ export const adminContentApi = {
     createCoupon: (data) => axiosInstance.post('/admin/coupons', data),
     updateCoupon: (id, data) => axiosInstance.put(`/admin/coupons/${id}`, data),
     deleteCoupon: (id) => axiosInstance.delete(`/admin/coupons/${id}`),
+
+    // Deal Sections (Today's Deals, Lowest Price Ever, Trending Products, Best Value Deals)
+    getDealSections: () => axiosInstance.get('/admin/deals/sections'),
+    getDealSectionByKey: (key) => axiosInstance.get(`/admin/deals/sections/${key}`),
+    updateDealSection: (key, data) => axiosInstance.put(`/admin/deals/sections/${key}`, data),
 };
 
 export default adminContentApi;

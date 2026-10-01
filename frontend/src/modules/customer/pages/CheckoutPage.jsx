@@ -327,17 +327,25 @@ const CheckoutPage = () => {
     }
   }, [paymentMethods, selectedPayment]);
 
+  const effectiveDeliveryFee =
+    pricingPreview?.shippingRateSource === "shiprocket"
+      ? 99
+      : Number(pricingPreview?.deliveryFeeCharged || 0);
+
   const grossOrderTotal = Number(
-    pricingPreview?.grandTotal ??
-      Math.max(
-        0,
-        (cartTotal || 0) +
-          Number(pricingPreview?.deliveryFeeCharged || 0) +
-          Number(pricingPreview?.handlingFeeCharged || 0) +
-          Number(pricingPreview?.taxTotal || 0) +
-          Number(selectedTip || 0) -
-          Number(discountAmount || 0)
-      )
+    pricingPreview?.grandTotal != null
+      ? (pricingPreview?.shippingRateSource === "shiprocket" && pricingPreview?.deliveryFeeCharged !== 99
+          ? Number(pricingPreview.grandTotal) - Number(pricingPreview.deliveryFeeCharged || 0) + 99
+          : pricingPreview.grandTotal)
+      : Math.max(
+          0,
+          (cartTotal || 0) +
+            effectiveDeliveryFee +
+            Number(pricingPreview?.handlingFeeCharged || 0) +
+            Number(pricingPreview?.taxTotal || 0) +
+            Number(selectedTip || 0) -
+            Number(discountAmount || 0)
+        )
   );
 
   useEffect(() => {

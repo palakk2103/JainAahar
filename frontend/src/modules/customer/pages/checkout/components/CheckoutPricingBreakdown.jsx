@@ -29,7 +29,10 @@ function CheckoutPricingBreakdown({
   selectedCoupon,
   discountAmount,
 }) {
-  const deliveryFee = pricingPreview?.deliveryFeeCharged || 0;
+  const deliveryFee =
+    pricingPreview?.shippingRateSource === "shiprocket"
+      ? 99
+      : (pricingPreview?.deliveryFeeCharged || 0);
   const handlingFee = pricingPreview?.handlingFeeCharged || 0;
   const tipAmount = pricingPreview?.tipTotal || selectedTip || 0;
   const taxAmount = pricingPreview?.taxTotal || 0;

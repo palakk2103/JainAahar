@@ -237,9 +237,10 @@ const CheckoutPage = () => {
           name: defaultAddr.name || user?.name || "",
           address: defaultAddr.rawAddress || defaultAddr.address || "",
           landmark: defaultAddr.landmark || "",
-          city: defaultAddr.city
-            ? `${defaultAddr.city}${defaultAddr.pincode ? ` - ${defaultAddr.pincode}` : ""}`
-            : defaultAddr.pincode || "",
+          city: (defaultAddr.city || "")
+            .replace(/\s*-\s*\d{6}.*$/, "")
+            .replace(/[0-9]/g, "")
+            .trim(),
           state: defaultAddr.state || "",
           pincode: defaultAddr.pincode || "",
           phone: defaultAddr.phone || user?.phone || "",
@@ -500,7 +501,10 @@ const CheckoutPage = () => {
       phone: currentAddress.phone || user?.phone || "",
       address: currentAddress.address || "",
       landmark: currentAddress.landmark || "",
-      city: currentAddress.city || "",
+      city: (currentAddress.city || "")
+        .replace(/\s*-\s*\d{6}.*$/, "")
+        .replace(/[0-9]/g, "")
+        .trim(),
       state: currentAddress.state || "",
       pincode: currentAddress.pincode || "",
       location: currentAddress.location || null,
@@ -579,7 +583,7 @@ const CheckoutPage = () => {
       phone: phone,
       address: address,
       landmark: landmark,
-      city: [city, pincode].filter(Boolean).join(" - "),
+      city: city.replace(/[^a-zA-Z\s]/g, "").trim(),
       state: state,
       pincode: pincode,
       ...(initialLoc ? { location: initialLoc } : {}),
@@ -683,7 +687,10 @@ const CheckoutPage = () => {
       type: addr.label || "Home",
       name: addr.name || user?.name || "",
       address: rawText,
-      city: addr.city ? `${addr.city}${addr.pincode ? ` - ${addr.pincode}` : ""}` : (addr.pincode || ""),
+      city: (addr.city || "")
+        .replace(/\s*-\s*\d{6}.*$/, "")
+        .replace(/[0-9]/g, "")
+        .trim(),
       state: addr.state || "",
       pincode: addr.pincode || "",
       phone: addr.phone || user?.phone || "",
@@ -759,10 +766,10 @@ const CheckoutPage = () => {
       editAddressForm.city?.match(/\b(\d{6})\b/)?.[1] ||
       "";
 
-    let editCity = editAddressForm.city?.trim() || "";
-    if (editCity.includes("-")) {
-      editCity = editCity.split("-")[0].trim();
-    }
+    let editCity = (editAddressForm.city?.trim() || "")
+      .replace(/\s*-\s*\d{6}.*$/, "")
+      .replace(/[^a-zA-Z\s]/g, "")
+      .trim();
 
     const updated = {
       ...currentAddress,
@@ -1694,7 +1701,10 @@ const CheckoutPage = () => {
                 <Label className="text-xs font-semibold text-slate-700">City</Label>
                 <Input
                   value={addAddressForm.city}
-                  onChange={(e) => setAddAddressForm((p) => ({ ...p, city: e.target.value }))}
+                  onChange={(e) => {
+                    const onlyCity = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                    setAddAddressForm((p) => ({ ...p, city: onlyCity }));
+                  }}
                   placeholder="City"
                   className="h-10 rounded-xl"
                 />
@@ -1828,7 +1838,10 @@ const CheckoutPage = () => {
                 <Label className="text-xs font-semibold text-slate-700">City</Label>
                 <Input
                   value={editAddressForm.city}
-                  onChange={(e) => setEditAddressForm((p) => ({ ...p, city: e.target.value }))}
+                  onChange={(e) => {
+                    const onlyCity = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                    setEditAddressForm((p) => ({ ...p, city: onlyCity }));
+                  }}
                   placeholder="City"
                   className="h-10 rounded-xl"
                 />

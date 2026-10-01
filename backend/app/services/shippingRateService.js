@@ -46,16 +46,25 @@ function extractPincode(raw) {
   return match ? match[1] : raw.trim();
 }
 
-// ─── Local Delivery Detection ───────────────────────────────────────────────
+// ─── Free / Local Delivery Configuration ─────────────────────────────────────
+// Customers located in Indore and Shivpuri receive FREE delivery (₹0).
+// Customers in all other locations across India receive flat ₹99 standard shipping.
+const FREE_DELIVERY_CITIES = ["indore", "shivpuri", "karera"];
+const FREE_DELIVERY_PINCODE_PREFIXES = [
+  "452", // Indore Urban (452001 - 452020)
+  "453", // Indore District / Mhow / Sanwer / Depalpur / Rau
+  "473", // Shivpuri District (473551 HO, 473660 Karera, 473774 Kolaras, etc.)
+];
+export const FLAT_PAN_INDIA_SHIPPING_FEE = 99;
 
 /**
  * Determines whether the customer's delivery address qualifies as
- * "same city" relative to the fulfilment warehouse.
+ * free local delivery (Indore or Shivpuri, or warehouse local city).
  *
- * Uses a dual-check approach:
- *   1. City-name match (normalised) — covers obvious cases.
- *   2. Pincode district-prefix match (first 3 digits = same postal district)
- *      — reliable fallback when the city string is inconsistent or missing.
+ * Checks:
+ *   1. Designated Free Delivery Pincode Prefixes (452, 453 for Indore, 473 for Shivpuri).
+ *   2. Designated Free Delivery City names (Indore, Shivpuri, Karera).
+ *   3. Fulfillment warehouse postal district / city match fallback.
  *
  * @param {Object} warehouse — Mongoose lean warehouse doc
  * @param {string} customerPincode — 6-digit customer delivery pincode
@@ -68,19 +77,42 @@ export function isLocalDelivery(warehouse, customerPincode, customerCity = "") {
   const custPincode = extractPincode(customerPincode);
   const custCity = normalizeCity(customerCity);
 
-  // No warehouse pincode or customer pincode → cannot determine
+  // Check 1: Designated Free Delivery Pincode Prefixes (Indore: 452, 453; Shivpuri: 473)
+  if (custPincode && custPincode.length >= 3) {
+    const custPrefix = custPincode.slice(0, 3);
+    if (FREE_DELIVERY_PINCODE_PREFIXES.includes(custPrefix)) {
+      return {
+        isLocal: true,
+        warehouseCity: warehouseCity || "Local Hub",
+        method: "free_city_pincode",
+      };
+    }
+  }
+
+  // Check 2: Designated Free Delivery City names (Indore / Shivpuri)
+  if (custCity) {
+    for (const city of FREE_DELIVERY_CITIES) {
+      if (custCity.includes(city)) {
+        return {
+          isLocal: true,
+          warehouseCity: warehouseCity || "Local Hub",
+          method: "free_city_name",
+        };
+      }
+    }
+  }
+
+  // No warehouse pincode or customer pincode → cannot determine further
   if (!warehousePincode || !custPincode) {
     return { isLocal: false, warehouseCity, method: "no_pincode" };
   }
 
-  // Check 1: exact pincode match → definitely local
+  // Check 3: exact pincode match with warehouse
   if (warehousePincode === custPincode) {
     return { isLocal: true, warehouseCity, method: "pincode_exact" };
   }
 
-  // Check 2: postal district prefix match (first 3 digits)
-  // In India, pincodes sharing the first 3 digits belong to the same
-  // sorting district and are typically within the same city/region.
+  // Check 4: postal district prefix match (first 3 digits) with warehouse
   const warehouseDistrict = warehousePincode.slice(0, 3);
   const customerDistrict = custPincode.slice(0, 3);
   if (warehouseDistrict === customerDistrict) {
@@ -92,7 +124,7 @@ export function isLocalDelivery(warehouse, customerPincode, customerCity = "") {
     return { isLocal: false, warehouseCity, method: "different_zone" };
   }
 
-  // Check 3: city name match (both non-empty and equal) within same zone
+  // Check 5: city name match with warehouse
   if (warehouseCity && custCity && warehouseCity === custCity) {
     return { isLocal: true, warehouseCity, method: "city_match" };
   }
@@ -362,63 +394,33 @@ export async function calculateCheckoutShipping({
     };
   }
 
-  // 5. Not local — call Shiprocket
-  try {
-    const rateResult = await calculateShippingRate({
-      originPincode: warehousePincode,
-      destinationPincode: cleanPincode,
-      weight: totalWeight,
-      length: maxLength,
-      breadth: maxBreadth,
-      height: maxHeight,
-      paymentMode,
-      totalValue,
-    });
+  // 5. Not local — Pan-India Flat ₹99 Delivery (Outside Indore & Shivpuri)
+  const panIndiaFee = FLAT_PAN_INDIA_SHIPPING_FEE;
 
-    const finalCharge = Math.max(0, rateResult.rate + shippingBuffer);
+  logger.info(
+    `[ShippingRate] Pan-India delivery applied: ₹${panIndiaFee} (dest=${cleanPincode} city=${customerCity})`
+  );
 
-    logger.info(
-      `[ShippingRate] Shiprocket rate: ₹${rateResult.rate} + buffer ₹${shippingBuffer} = ₹${finalCharge} ` +
-      `(origin=${warehousePincode} dest=${cleanPincode} weight=${totalWeight}kg courier=${rateResult.courierName})`
-    );
-
-    return {
-      shippingCharge: finalCharge,
-      shippingRateSource: "shiprocket",
-      isLocalDelivery: false,
-      fulfillmentWarehouse: {
-        id: warehouse._id,
-        name: warehouse.warehouseName || warehouse.name,
-        city: warehouse.city,
-        pincode: warehouse.pincode,
-      },
-      courierInfo: {
-        name: rateResult.courierName,
-        codCharges: rateResult.codCharges,
-        etdHours: rateResult.etdHours,
-        baseRate: rateResult.rate,
-        bufferApplied: shippingBuffer,
-      },
-      totalWeight,
-      calculatedAt: new Date(),
-    };
-  } catch (err) {
-    // Re-throw known user-facing errors
-    if (err.statusCode === 400 || err.statusCode === 422) {
-      throw err;
-    }
-
-    logger.error(
-      `[ShippingRate] Shiprocket rate calculation failed: ${err.message} ` +
-      `(origin=${warehousePincode} dest=${cleanPincode})`
-    );
-
-    const userErr = new Error(
-      "Delivery charges could not be calculated right now. Please try again."
-    );
-    userErr.statusCode = 503;
-    throw userErr;
-  }
+  return {
+    shippingCharge: panIndiaFee,
+    shippingRateSource: "shiprocket",
+    isLocalDelivery: false,
+    fulfillmentWarehouse: {
+      id: warehouse._id,
+      name: warehouse.warehouseName || warehouse.name,
+      city: warehouse.city,
+      pincode: warehouse.pincode,
+    },
+    courierInfo: {
+      name: "Standard Delivery (Pan India)",
+      codCharges: 0,
+      etdHours: 72,
+      baseRate: panIndiaFee,
+      bufferApplied: 0,
+    },
+    totalWeight,
+    calculatedAt: new Date(),
+  };
 }
 
 export default {

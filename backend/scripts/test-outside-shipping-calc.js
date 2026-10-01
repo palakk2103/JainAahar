@@ -86,15 +86,15 @@ async function testOutsideShipping() {
         });
 
         if (result.isLocalDelivery) {
-          console.log(`   🟢 Delivery Type : LOCAL (Same City / District)`);
+          console.log(`   🟢 Delivery Type : FREE DELIVERY (Indore / Shivpuri)`);
           console.log(`   🚚 Delivery Fee  : ₹${result.shippingCharge} (FREE DELIVERY)`);
           console.log(`   🏢 Fulfillment   : ${result.fulfillmentWarehouse?.name} (${result.fulfillmentWarehouse?.city})`);
         } else {
-          console.log(`   🔵 Delivery Type : OUTSIDE CITY (Live Shiprocket Rate)`);
-          console.log(`   🚚 Delivery Fee  : ₹${result.shippingCharge}`);
+          console.log(`   🔵 Delivery Type : OUTSIDE CITIES (Pan-India Standard Delivery)`);
+          console.log(`   🚚 Delivery Fee  : ₹${result.shippingCharge} (Flat ₹99)`);
           console.log(`   🏢 Origin WH     : ${result.fulfillmentWarehouse?.name} (${result.fulfillmentWarehouse?.city} - ${result.fulfillmentWarehouse?.pincode})`);
-          console.log(`   📦 Courier Name  : ${result.courierInfo?.name || "Shiprocket Courier"}`);
-          console.log(`   ⏱️ Est. Delivery : ~${Math.round((result.courierInfo?.etdHours || 48) / 24)} Days (${result.courierInfo?.etdHours || 48} hrs)`);
+          console.log(`   📦 Courier Name  : ${result.courierInfo?.name || "Standard Delivery (Pan India)"}`);
+          console.log(`   ⏱️ Est. Delivery : ~${Math.round((result.courierInfo?.etdHours || 72) / 24)} Days (${result.courierInfo?.etdHours || 72} hrs)`);
         }
       } catch (err) {
         console.log(`   ⚠️ Calculation Error: ${err.message}`);

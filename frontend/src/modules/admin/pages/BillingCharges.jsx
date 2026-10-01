@@ -240,11 +240,11 @@ const BillingCharges = () => {
                                         <Truck className="h-6 w-6 text-purple-600 shrink-0 mt-0.5" />
                                         <div className="space-y-1">
                                             <p className="text-xs font-black text-purple-900 uppercase tracking-tight">
-                                                Shiprocket Live Dynamic Courier Pricing Active
+                                                Shiprocket / Pan-India Delivery Active
                                             </p>
                                             <p className="text-[11px] font-bold text-purple-700 leading-relaxed">
-                                                • <strong>Local Same-City Orders:</strong> Automatically detected via PIN/city and charged <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">FREE (₹0)</span>.<br />
-                                                • <strong>Inter-City / Outstation Orders:</strong> Live rates fetched in real-time from Shiprocket serviceability API based on package weight and customer PIN code.
+                                                • <strong>Indore & Shivpuri Orders:</strong> Automatically detected via PIN/city and charged <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">FREE (₹0)</span>.<br />
+                                                • <strong>Pan-India Orders (Outside Indore & Shivpuri):</strong> Flat <span className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded font-black">₹99</span> standard delivery fee charged to customer.
                                             </p>
                                         </div>
                                     </div>

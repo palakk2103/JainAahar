@@ -93,20 +93,18 @@ function CheckoutPricingBreakdown({
               <span className="font-black text-slate-800">₹{deliveryFee}</span>
             )}
           </div>
-          {pricingPreview?.shippingRateSource === "local_free" && (
+          {(pricingPreview?.shippingRateSource === "local_free" || (deliveryFee === 0 && pricingPreview?.isLocalDelivery)) && (
             <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-600">
-              <span>Same City Delivery (Free)</span>
+              <span>Indore & Shivpuri Delivery (Free)</span>
               {pricingPreview?.fulfillmentWarehouseCity && (
                 <span className="text-slate-400">from {pricingPreview.fulfillmentWarehouseCity}</span>
               )}
             </div>
           )}
           {pricingPreview?.shippingRateSource === "shiprocket" && (
-            <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-400">
-              <span>Standard Shipping ({pricingPreview.courierInfo?.name || "Shiprocket"})</span>
-              {pricingPreview?.totalShippingWeight && (
-                <span>{pricingPreview.totalShippingWeight} kg</span>
-              )}
+            <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>Pan-India Standard Delivery</span>
+              <span className="text-slate-400 font-normal">Flat ₹99</span>
             </div>
           )}
           {!pricingPreview?.shippingRateSource &&

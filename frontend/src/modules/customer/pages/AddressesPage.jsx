@@ -438,7 +438,15 @@ const AddressesPage = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="city">City</Label>
-                                <Input id="city" placeholder="New Delhi" value={addForm.city} onChange={e => setAddForm(f => ({ ...f, city: e.target.value }))} />
+                                <Input
+                                    id="city"
+                                    placeholder="New Delhi"
+                                    value={addForm.city}
+                                    onChange={e => {
+                                        const onlyCity = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                        setAddForm(f => ({ ...f, city: onlyCity }));
+                                    }}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="state">State</Label>
@@ -499,7 +507,15 @@ const AddressesPage = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-city">City</Label>
-                                <Input id="edit-city" placeholder="New Delhi" value={editForm.city} onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))} />
+                                <Input
+                                    id="edit-city"
+                                    placeholder="New Delhi"
+                                    value={editForm.city}
+                                    onChange={e => {
+                                        const onlyCity = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                        setEditForm(f => ({ ...f, city: onlyCity }));
+                                    }}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-state">State</Label>

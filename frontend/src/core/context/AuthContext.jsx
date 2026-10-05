@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 
 import axiosInstance from '@core/api/axios';
-import { getWithDedupe } from '@core/api/dedupe';
+import { getWithDedupe, clearAllCache } from '@core/api/dedupe';
 import { getStoredAuthToken } from '@core/utils/authStorage';
 import {
     getActiveRole,
@@ -178,6 +178,7 @@ export const AuthProvider = ({ children }) => {
             // Backend cart will replace it as soon as fetchCart resolves.
             rawRemove(STORAGE_KEYS.CART);
             rawRemove(STORAGE_KEYS.WISHLIST);
+            clearAllCache();
 
             setAuthData(prev => ({ ...prev, [role]: userData.token }));
             setUser(userData); // Set full data initially
@@ -229,6 +230,7 @@ export const AuthProvider = ({ children }) => {
 
         // Clear the current user profile from memory
         setUser(null);
+        clearAllCache();
 
         // Final fallback: redirect based on current path if needed
         // (ProtectedRoute usually handles this, but explicit navigation is safer for some UI edge cases)

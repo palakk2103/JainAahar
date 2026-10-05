@@ -3,13 +3,16 @@ import { getCachedTranslation, setCachedTranslation } from '../utils/translation
 
 const queue = [];
 let batchTimeout = null;
-const BATCH_WAIT_MS = 100;
-const MAX_BATCH_SIZE = 10;
+const BATCH_WAIT_MS = 50;
+const MAX_BATCH_SIZE = 50;
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL_MS = 200;
+const MIN_REQUEST_INTERVAL_MS = 50;
 
 const processQueue = async () => {
-  if (queue.length === 0) return;
+  if (queue.length === 0) {
+    batchTimeout = null;
+    return;
+  }
 
   const now = Date.now();
   const timeSinceLast = now - lastRequestTime;
@@ -21,7 +24,10 @@ const processQueue = async () => {
   lastRequestTime = Date.now();
 
   const chunk = queue.splice(0, MAX_BATCH_SIZE);
-  if (chunk.length === 0) return;
+  if (chunk.length === 0) {
+    batchTimeout = null;
+    return;
+  }
 
   const groups = {};
   chunk.forEach(req => {
@@ -69,8 +75,9 @@ const processQueue = async () => {
 const enqueueRequest = (text, targetLang, sourceLang) => {
   return new Promise((resolve) => {
     queue.push({ text, targetLang, sourceLang, resolve });
-    if (batchTimeout) return;
-    batchTimeout = setTimeout(processQueue, BATCH_WAIT_MS);
+    if (!batchTimeout) {
+      batchTimeout = setTimeout(processQueue, BATCH_WAIT_MS);
+    }
   });
 };
 

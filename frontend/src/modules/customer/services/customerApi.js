@@ -95,7 +95,7 @@ export const customerApi = {
     axiosInstance.post(`/orders/${orderId}/cod/reconcile`, data),
   placeOrder: (data) =>
     axiosInstance.post("/orders/place", data, { timeout: 120000 }),
-  getMyOrders: () => getWithDedupe("/orders/my-orders"),
+  getMyOrders: (params) => axiosInstance.get("/orders/my-orders", { params }),
   /**
    * Order details must reflect live workflow, but we still dedupe in-flight requests to avoid
    * network spam when multiple effects/events trigger refresh simultaneously.
@@ -209,6 +209,7 @@ export const customerApi = {
   // Notifications
   getNotifications: (params) => axiosInstance.get("/notifications", { params }),
   markNotificationsRead: () => axiosInstance.patch("/notifications/read"),
+  markNotificationRead: (id) => axiosInstance.patch(`/notifications/read/${id}`),
 
   // Kits
   getKitHomeData: (params) => getWithDedupe("/kits/home-data", params),

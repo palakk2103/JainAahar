@@ -11,6 +11,7 @@ import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
 import { useToast } from '@shared/components/ui/Toast';
 import { customerApi } from '../services/customerApi';
+import { useCustomerNotification } from '../context/CustomerNotificationContext';
 import CartPage from './CartPage';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ const ProfilePage = () => {
     const navigate = useNavigate();
     const { user, logout, refreshUser } = useAuth();
     const { settings } = useSettings();
+    const { unreadCount: notificationCount } = useCustomerNotification();
     const { showToast } = useToast();
     const { t, language, setLanguage, languages } = useTranslation();
     const appName = settings?.appName || 'App';
@@ -73,9 +75,15 @@ const ProfilePage = () => {
                         type="button"
                         onClick={() => navigate('/notifications')}
                         title="View notifications"
-                        className="w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-slate-200 bg-white hover:bg-slate-100 shadow-2xs"
+                        className="w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-slate-200 bg-white hover:bg-slate-100 shadow-2xs relative"
+                        aria-label="Notifications"
                     >
                         <Bell size={18} className="text-slate-700" />
+                        {notificationCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-[#FF8200] text-white text-[9px] font-black min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
+                                {notificationCount > 99 ? '99+' : notificationCount}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>

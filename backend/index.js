@@ -51,7 +51,7 @@ import { stopScheduledJobs } from "./app/services/distributedScheduler.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, ".env") });
-// Reload trigger
+// Reload trigger: PE_ID and DLT template synced
 
 
 const PORT = parseInt(process.env.PORT || '7000', 10);

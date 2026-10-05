@@ -135,6 +135,16 @@ const ProductDetailSheet = () => {
             ];
     }, [selectedProduct, extendedProduct]);
 
+    const activeProduct = extendedProduct || selectedProduct;
+    const isOutOfStock = useMemo(() => {
+        if (!activeProduct) return false;
+        if (activeProduct.isOutOfStock === true || activeProduct.stockStatus === "out_of_stock") return true;
+        if (selectedVariant && typeof selectedVariant.stock === "number" && selectedVariant.stock <= 0) return true;
+        if (activeProduct.availableStock !== undefined && activeProduct.availableStock !== null && Number(activeProduct.availableStock) <= 0) return true;
+        if (activeProduct.stock !== undefined && activeProduct.stock !== null && Number(activeProduct.stock) <= 0) return true;
+        return false;
+    }, [activeProduct, selectedVariant]);
+
     const displayHighlights = useMemo(() => {
         if (Array.isArray(selectedProduct?.highlights) && selectedProduct.highlights.length > 0) {
             return selectedProduct.highlights.slice(0, 4);
@@ -317,6 +327,14 @@ const ProductDetailSheet = () => {
     };
 
     const handleAddToCart = () => {
+        if (isOutOfStock) {
+            showToast("Insufficient stock available", "error");
+            return;
+        }
+        if (quantity >= 10) {
+            showToast("Maximum 10 units of this product can be ordered.", "warning");
+            return;
+        }
         addToCart({
             ...selectedProduct,
             variantSku: String(selectedVariant?.sku || selectedVariant?.name || "").trim(),
@@ -324,8 +342,17 @@ const ProductDetailSheet = () => {
         showToast(`${selectedProduct.name} added to cart`, 'success');
     };
 
-    const handleIncrement = () =>
+    const handleIncrement = () => {
+        if (isOutOfStock) {
+            showToast("Insufficient stock available", "error");
+            return;
+        }
+        if (quantity >= 10) {
+            showToast("Maximum 10 units of this product can be ordered.", "warning");
+            return;
+        }
         updateQuantity(selectedProduct.id, 1, String(selectedVariant?.sku || selectedVariant?.name || "").trim());
+    };
 
     const handleDecrement = () => {
         if (quantity === 1) {
@@ -529,16 +556,18 @@ const ProductDetailSheet = () => {
                                                     💰 Save ₹{selectedProduct.originalPrice - selectedProduct.price}
                                                 </motion.div>
                                             )}
-                                            <motion.div
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: 0.2 }}
-                                                className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-[700] border border-orange-100/50"
-                                            >
-                                                <Star size={10} fill="currentColor" />
-                                                {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
-                                                <span className="text-orange-400 font-medium">({reviews.length > 0 ? reviews.length : '120+'})</span>
-                                            </motion.div>
+                                            {reviews.length > 0 && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: 0.2 }}
+                                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-[700] border border-orange-100/50"
+                                                >
+                                                    <Star size={10} fill="currentColor" />
+                                                    {(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)}
+                                                    <span className="text-orange-400 font-medium">({reviews.length})</span>
+                                                </motion.div>
+                                            )}
                                         </div>
 
                                         {/* Product Name */}
@@ -584,7 +613,14 @@ const ProductDetailSheet = () => {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    {quantity > 0 ? (
+                                                    {isOutOfStock ? (
+                                                        <button
+                                                            disabled
+                                                            className="bg-slate-200 text-slate-500 cursor-not-allowed h-12 px-6 rounded-xl font-bold text-xs uppercase tracking-wider border border-slate-300"
+                                                        >
+                                                            Insufficient Stock
+                                                        </button>
+                                                    ) : quantity > 0 ? (
                                                         <div className="flex items-center gap-1 bg-white border border-brand-200 rounded-xl p-1 shadow-sm">
                                                             <motion.button whileTap={{ scale: 0.85 }} onClick={handleDecrement} className="w-9 h-9 bg-brand-50 rounded-lg flex items-center justify-center text-brand-700 hover:bg-brand-100 transition-colors">
                                                                 <Minus size={16} strokeWidth={2.5} />
@@ -603,7 +639,16 @@ const ProductDetailSheet = () => {
                                                                     </motion.span>
                                                                 </AnimatePresence>
                                                             </div>
-                                                            <motion.button whileTap={{ scale: 0.85 }} onClick={handleIncrement} className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white hover:bg-[var(--brand-400)] transition-colors shadow-sm">
+                                                            <motion.button
+                                                                whileTap={{ scale: 0.85 }}
+                                                                onClick={handleIncrement}
+                                                                disabled={quantity >= 10}
+                                                                className={cn(
+                                                                    "w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white hover:bg-[var(--brand-400)] transition-colors shadow-sm",
+                                                                    quantity >= 10 && "opacity-40 cursor-not-allowed"
+                                                                )}
+                                                                title={quantity >= 10 ? "Maximum 10 units allowed" : "Increase quantity"}
+                                                            >
                                                                 <Plus size={16} strokeWidth={2.5} />
                                                             </motion.button>
                                                         </div>
@@ -722,16 +767,18 @@ const ProductDetailSheet = () => {
                                             {/* Customer Reviews */}
                                             <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
                                                 id="reviews" 
-                                                title={`Customer Reviews (${reviews.length > 0 ? reviews.length : '120+'})`}
+                                                title={reviews.length > 0 ? `Customer Reviews (${reviews.length})` : "Customer Reviews"}
                                                 icon={<Star size={16} />}
                                             >
                                                 <div className="space-y-6 mt-2">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-primary rounded-xl text-xs font-black border border-brand-100">
-                                                            <Star size={14} fill="currentColor" />
-                                                            {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
+                                                    {reviews.length > 0 && (
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-primary rounded-xl text-xs font-black border border-brand-100">
+                                                                <Star size={14} fill="currentColor" />
+                                                                {(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)}
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
 
                                                     {/* Review Form */}
                                                     {selectedProduct?.hasReviewed || extendedProduct?.hasReviewed || localHasReviewed ? (
@@ -1081,16 +1128,18 @@ const ProductDetailSheet = () => {
                                             {/* Customer Reviews */}
                                             <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
                                                 id="reviews" 
-                                                title={`Customer Reviews (${reviews.length > 0 ? reviews.length : '120+'})`}
+                                                title={reviews.length > 0 ? `Customer Reviews (${reviews.length})` : "Customer Reviews"}
                                                 icon={<Star size={18} strokeWidth={2.5} />}
                                             >
                                                 <div className="space-y-6 mt-2">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-primary rounded-xl text-xs font-black border border-brand-100">
-                                                            <Star size={16} fill="currentColor" />
-                                                            {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
+                                                    {reviews.length > 0 && (
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-primary rounded-xl text-xs font-black border border-brand-100">
+                                                                <Star size={16} fill="currentColor" />
+                                                                {(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)}
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
 
                                                     {/* Review Form */}
                                                     {(selectedProduct?.hasReviewed || extendedProduct?.hasReviewed || localHasReviewed) ? (
@@ -1192,7 +1241,14 @@ const ProductDetailSheet = () => {
                                 </Link>
 
                                 {/* Right Side: Add to Cart / Quantity Pill Button */}
-                                {quantity > 0 ? (
+                                {isOutOfStock ? (
+                                    <button
+                                        disabled
+                                        className="flex-1 bg-slate-200 text-slate-500 cursor-not-allowed h-14 rounded-[20px] font-extrabold text-[13px] flex items-center justify-center px-6 shadow-none border border-slate-300 uppercase tracking-wider"
+                                    >
+                                        Insufficient Stock
+                                    </button>
+                                ) : quantity > 0 ? (
                                     <div className="flex-1 bg-[#FF8200] text-white h-14 rounded-[20px] flex items-center justify-between px-2 shadow-xl shadow-brand-100 border border-white/20">
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
@@ -1218,7 +1274,12 @@ const ProductDetailSheet = () => {
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleIncrement}
-                                            className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            disabled={quantity >= 10}
+                                            className={cn(
+                                                "w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors",
+                                                quantity >= 10 && "opacity-40 cursor-not-allowed"
+                                            )}
+                                            title={quantity >= 10 ? "Maximum 10 units allowed" : "Increase quantity"}
                                         >
                                             <Plus size={18} strokeWidth={3.5} />
                                         </motion.button>

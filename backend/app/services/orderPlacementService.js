@@ -413,6 +413,114 @@ export async function placeOrderAtomic({
       session,
     });
 
+    // Validate MAX_PRODUCT_QUANTITY per item and per product/SKU line
+    const MAX_PRODUCT_QUANTITY = 10;
+    const requestedQtyByProductKey = new Map();
+
+    for (const item of orderItemsInput) {
+      const pId = String(item.product || item.productId || "");
+      const reqQty = Number(item.quantity || 1);
+      if (!Number.isInteger(reqQty) || reqQty < 1 || reqQty > MAX_PRODUCT_QUANTITY) {
+        const err = new Error(
+          `Maximum ${MAX_PRODUCT_QUANTITY} units of this product can be ordered`,
+        );
+        err.statusCode = 400;
+        throw err;
+      }
+
+      const variantSku = String(item.variantSku || item.variantSlot || "").trim();
+      const productKey = `${pId}::${variantSku}`;
+      const accumulatedQty = (requestedQtyByProductKey.get(productKey) || 0) + reqQty;
+      if (accumulatedQty > MAX_PRODUCT_QUANTITY) {
+        const err = new Error(
+          `Maximum ${MAX_PRODUCT_QUANTITY} units of this product can be ordered`,
+        );
+        err.statusCode = 400;
+        throw err;
+      }
+      requestedQtyByProductKey.set(productKey, accumulatedQty);
+    }
+
+    // Validate stock availability for all items before initiating order placement
+    const itemProductIds = orderItemsInput
+      .map((item) => String(item.product || item.productId || ""))
+      .filter(Boolean);
+
+    if (itemProductIds.length > 0) {
+      let availabilityMap = new Map();
+      try {
+        const visibilityModule = await import("./customerVisibilityService.js");
+        if (typeof visibilityModule?.getProductWarehouseAvailability === "function") {
+          availabilityMap = await visibilityModule.getProductWarehouseAvailability(itemProductIds);
+        }
+      } catch (err) {}
+
+      let productDocs = [];
+      try {
+        productDocs = await Product.find({ _id: { $in: itemProductIds } })
+          .select("_id name stock status variants")
+          .session(session)
+          .lean();
+      } catch (err) {}
+
+      if (Array.isArray(productDocs) && productDocs.length > 0) {
+        const productDocMap = new Map(productDocs.map((p) => [String(p._id), p]));
+
+        for (const item of orderItemsInput) {
+          const pId = String(item.product || item.productId || "");
+          const product = productDocMap.get(pId);
+          if (product) {
+            if (product.status && product.status !== "active") {
+              const err = new Error(`Product is not available for purchase: ${product.name}`);
+              err.statusCode = 400;
+              throw err;
+            }
+
+            const reqQty = Number(item.quantity || 1);
+            const variantSku = String(item.variantSku || item.variantSlot || "").trim();
+
+            const avail = availabilityMap?.get(pId);
+            const effectiveStock = avail ? avail.availableStock : (product.stock ?? 0);
+
+            if (effectiveStock <= 0) {
+              const err = new Error(`Item "${product.name}" is currently out of stock`);
+              err.statusCode = 409;
+              throw err;
+            }
+            if (effectiveStock < reqQty) {
+              const err = new Error(
+                `Insufficient stock for "${product.name}". Requested: ${reqQty}, Available: ${effectiveStock}`,
+              );
+              err.statusCode = 409;
+              throw err;
+            }
+
+            if (variantSku && Array.isArray(product.variants) && product.variants.length > 0) {
+              const v = product.variants.find(
+                (varItem) =>
+                  String(varItem.sku || "").trim() === variantSku ||
+                  String(varItem.name || "").trim() === variantSku,
+              );
+              if (v && typeof v.stock === "number") {
+                if (v.stock <= 0) {
+                  const err = new Error(`Variant "${v.name || variantSku}" of "${product.name}" is out of stock`);
+                  err.statusCode = 409;
+                  throw err;
+                }
+                if (v.stock < reqQty) {
+                  const err = new Error(
+                    `Insufficient stock for variant "${v.name || variantSku}" of "${product.name}". Requested: ${reqQty}, Available: ${v.stock}`,
+                  );
+                  err.statusCode = 409;
+                  throw err;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Audit Phase 4 (C-1): when WALLET_REDEMPTION_REDUCES_PAYABLE is on,
     // pass walletAmount through to the snapshot so the per-seller
     // grandTotal is reduced proportionately. When the flag is off the

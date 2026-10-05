@@ -9,6 +9,7 @@ import { useSettings } from "@core/context/SettingsContext";
 import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { useCustomerNotification } from "../../context/CustomerNotificationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
   buildHeaderGradient,
@@ -187,6 +188,7 @@ const MainLocationHeader = ({
   const { settings } = useSettings();
   const { cartCount } = useCart();
   const { count: wishlistCount } = useWishlist();
+  const { unreadCount: notificationCount } = useCustomerNotification();
   const appName = settings?.appName || "App";
   const logoUrl = settings?.logoUrl;
   const navigate = useNavigate();
@@ -477,8 +479,14 @@ const MainLocationHeader = ({
                 onClick={() => navigate("/notifications")}
                 className="transition-all hover:text-slate-700 relative group"
                 style={{ color: headerFontColor }}
+                aria-label="Notifications"
               >
                 <NotificationsNoneOutlinedIcon sx={{ fontSize: 24 }} />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#FF8200] text-white text-[9px] font-black min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                    {notificationCount > 99 ? "99+" : notificationCount}
+                  </span>
+                )}
               </motion.button>
 
               <motion.button
@@ -574,11 +582,14 @@ const MainLocationHeader = ({
                 <button
                   onClick={() => navigate("/notifications")}
                   className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
+                  aria-label="Notifications"
                 >
                   <NotificationsNoneOutlinedIcon sx={{ fontSize: 22 }} />
-                  <span className="absolute -top-0.5 -right-0.5 bg-[#FF8200] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                    3
-                  </span>
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-[#FF8200] text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-white shadow-xs animate-in zoom-in duration-300">
+                      {notificationCount > 99 ? "99+" : notificationCount}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>

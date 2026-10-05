@@ -29,14 +29,14 @@ const variantSkuField = trimmedString.max(64).optional().allow("");
 /** POST /cart/add — add an item to the customer's cart. */
 export const addToCartSchema = Joi.object({
   productId: objectIdLike.required(),
-  quantity: Joi.number().integer().min(1).max(99).required(),
+  quantity: Joi.number().integer().min(1).max(10).required(),
   variantSku: variantSkuField,
 });
 
 /** PUT /cart/update — update quantity (and optionally variantSku) for an existing line item. */
 export const updateCartItemSchema = Joi.object({
   productId: objectIdLike.required(),
-  quantity: Joi.number().integer().min(0).max(99).required(),
+  quantity: Joi.number().integer().min(0).max(10).required(),
   variantSku: variantSkuField,
 });
 
@@ -51,7 +51,7 @@ export const mergeCartSchema = Joi.object({
     .items(
       Joi.object({
         productId: objectIdLike.required(),
-        quantity: Joi.number().integer().min(1).max(99).required(),
+        quantity: Joi.number().integer().min(1).max(10).required(),
         variantSku: variantSkuField,
       }),
     )

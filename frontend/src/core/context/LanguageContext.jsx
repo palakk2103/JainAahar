@@ -176,11 +176,9 @@ const GlobalDomTranslator = ({ language }) => {
                         }
                     }
                 }
-                // Recursively translate child nodes
-                for (const child of Array.from(node.childNodes)) {
-                    if (!isCurrent) return;
-                    await translateNode(child);
-                }
+                // Concurrently translate child nodes
+                const children = Array.from(node.childNodes);
+                await Promise.all(children.map(child => translateNode(child)));
             } else if (node.nodeType === Node.TEXT_NODE) {
                 const text = node.nodeValue.trim();
                 if (!text || text.length < 2 || /^[0-9\s\p{P}]+$/u.test(text)) {
@@ -258,10 +256,23 @@ export const LanguageProvider = ({ children }) => {
     const [isChangingLanguage, setIsChangingLanguage] = useState(false);
 
     const changeLanguage = (langCode) => {
+        if (!langCode) return;
+        const currentLang = localStorage.getItem('language') || 'en';
+        if (langCode === currentLang && langCode === language) return;
+
         setIsChangingLanguage(true);
         setLanguageState(langCode);
-        localStorage.setItem('language', langCode);
+        try {
+            localStorage.setItem('language', langCode);
+        } catch (err) {
+            console.error('Failed to persist language:', err);
+        }
         setIsChangingLanguage(false);
+
+        // Automatically reload so the selected language applies across the entire application immediately
+        if (typeof window !== 'undefined') {
+            window.location.reload();
+        }
     };
 
     const setLanguage = changeLanguage;

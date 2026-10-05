@@ -368,16 +368,14 @@ const Home = () => {
     setOfferSections(offSecs);
     setDealSections(dealSecs);
 
-    if (language === "en") {
-      setDisplayCategories(cats);
-      setDisplayProducts(prods);
-      setDisplayQuickCategories(quickCats);
-      setDisplayCategoryMap(catMap);
-      setDisplaySubcategoryMap(subMap);
-      setDisplayOfferSections(offSecs);
-      setDisplayDealSections(dealSecs);
-      setDisplayExperienceSections(expSecs);
-    }
+    setDisplayCategories(cats);
+    setDisplayProducts(prods);
+    setDisplayQuickCategories(quickCats);
+    setDisplayCategoryMap(catMap);
+    setDisplaySubcategoryMap(subMap);
+    setDisplayOfferSections(offSecs);
+    setDisplayDealSections(dealSecs);
+    setDisplayExperienceSections(expSecs);
 
     if (data.heroConfig) setHeroConfig(data.heroConfig);
     setActiveCategory((prev) => {

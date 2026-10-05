@@ -359,6 +359,11 @@ export async function hydrateOrderItems(
     }
 
     const quantity = normalizeLineQuantity(item.quantity);
+    if (quantity > 10) {
+      const err = new Error(`Maximum 10 units of "${product.name}" can be ordered`);
+      err.statusCode = 400;
+      throw err;
+    }
     const serverUnitPrice = normalizeLinePrice(
       resolvedVariant
         ? resolvedVariant.salePrice || resolvedVariant.price || product.salePrice || product.price

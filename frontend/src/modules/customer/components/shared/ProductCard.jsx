@@ -112,17 +112,22 @@ function ProductCardComponent({
       [isWishlisted, toggleWishlistGlobal, product, showToast],
     );
 
-    const isOutOfStock =
+    const isOutOfStock = Boolean(
       product?.isOutOfStock === true ||
       product?.stockStatus === "out_of_stock" ||
-      (typeof product?.stock === "number" && product?.stock <= 0 && product?.stock !== undefined) ||
-      (typeof product?.availableStock === "number" && product?.availableStock <= 0);
+      (product?.stock !== undefined && product?.stock !== null && Number(product.stock) <= 0) ||
+      (product?.availableStock !== undefined && product?.availableStock !== null && Number(product.availableStock) <= 0)
+    );
 
     const handleAddToCart = React.useCallback(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (isOutOfStock) return;
+        if (quantity >= 10) {
+          showToast("Maximum 10 units of this product can be ordered.", "warning");
+          return;
+        }
         if (imageRef.current) {
           animateAddToCart(
             imageRef.current.getBoundingClientRect(),
@@ -135,16 +140,20 @@ function ProductCardComponent({
           variantName: defaultVariant?.name || "",
         });
       },
-      [animateAddToCart, product, addToCart, variantKey, defaultVariant?.name, isOutOfStock],
+      [animateAddToCart, product, addToCart, variantKey, defaultVariant?.name, isOutOfStock, quantity, showToast],
     );
 
     const handleIncrement = React.useCallback(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (quantity >= 10) {
+          showToast("Maximum 10 units of this product can be ordered.", "warning");
+          return;
+        }
         updateQuantity(productId, 1, variantKey);
       },
-      [updateQuantity, productId, variantKey],
+      [updateQuantity, productId, variantKey, quantity, showToast],
     );
 
     const handleDecrement = React.useCallback(

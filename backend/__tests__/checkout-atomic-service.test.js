@@ -410,4 +410,19 @@ describe("checkout atomic service", () => {
       expect.objectContaining({ session: mockSession }),
     );
   });
+
+  test("TEST 16 & 17: rejects checkout when individual item quantity > 10", async () => {
+    // When Product.find returns empty array or products with stock:
+    await expect(
+      placeOrderAtomic({
+        customerId: "67f0000000000000000000c1",
+        payload: {
+          items: [{ product: "p1", quantity: 11 }],
+          address: { city: "Indore" },
+          paymentMode: "ONLINE",
+        },
+        idempotencyKey: null,
+      }),
+    ).rejects.toThrow();
+  });
 });

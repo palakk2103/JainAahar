@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import { customerApi } from "../services/customerApi";
 import { useAuth } from "../../../core/context/AuthContext";
 import { getJSON, setJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
@@ -31,6 +32,16 @@ export const CartProvider = ({ children }) => {
       const product = item.productId;
       const variantKey = String(item.variantSku || "").trim();
       const { price, salePrice, variantName } = resolveVariantPricing(product, variantKey);
+      const stock = product?.stock !== undefined ? Number(product.stock) : item.availableStock !== undefined ? Number(item.availableStock) : undefined;
+      const availableStock = product?.availableStock !== undefined ? Number(product.availableStock) : stock;
+      const isOutOfStock = Boolean(
+        item.isOutOfStock === true ||
+        product?.isOutOfStock === true ||
+        product?.stockStatus === "out_of_stock" ||
+        (typeof availableStock === "number" && availableStock <= 0) ||
+        (typeof stock === "number" && stock <= 0)
+      );
+
       return {
         ...product,
         id: product?._id ? String(product._id) : "", // Normalize ID to string
@@ -40,6 +51,10 @@ export const CartProvider = ({ children }) => {
         price,
         salePrice,
         image: product?.mainImage, // Handle mapping for frontend
+        stock,
+        availableStock,
+        isOutOfStock,
+        stockStatus: isOutOfStock ? "out_of_stock" : (product?.stockStatus || "in_stock"),
       };
     });
   };
@@ -127,23 +142,69 @@ export const CartProvider = ({ children }) => {
     };
   }, [cart, isAuthenticated]);
 
+  const MAX_PRODUCT_QUANTITY = 10;
+
   const addToCart = async (product) => {
+    const isOutOfStock = Boolean(
+      product?.isOutOfStock === true ||
+      product?.stockStatus === "out_of_stock" ||
+      (product?.stock !== undefined && product?.stock !== null && Number(product.stock) <= 0) ||
+      (product?.availableStock !== undefined && product?.availableStock !== null && Number(product.availableStock) <= 0)
+    );
+
+    if (isOutOfStock) {
+      console.warn("Blocked attempt to add out of stock product:", product?.name || product?.id);
+      return false;
+    }
+
     const variantSku = String(product?.variantSku || product?.variantName || "").trim();
     const id = product.id || product._id;
     const key = `${id}::${variantSku || ""}`;
     console.log("DEBUG: addToCart product:", { id, name: product?.name, variantSku, key });
+
+    const existingItem = cart.find(
+      (item) => `${item.id || item._id}::${String(item.variantSku || "").trim()}` === key,
+    );
+    const currentQty = existingItem ? Number(existingItem.quantity || 0) : 0;
+    const requestedQty = Math.max(1, Number(product?.quantity || 1));
+
+    if (currentQty >= MAX_PRODUCT_QUANTITY || currentQty + requestedQty > MAX_PRODUCT_QUANTITY) {
+      toast.warning(`Maximum ${MAX_PRODUCT_QUANTITY} units of this product can be ordered.`);
+      return false;
+    }
+
+    const effectiveStock =
+      product?.availableStock !== undefined
+        ? Number(product.availableStock)
+        : product?.stock !== undefined
+        ? Number(product.stock)
+        : existingItem?.availableStock !== undefined
+        ? Number(existingItem.availableStock)
+        : existingItem?.stock !== undefined
+        ? Number(existingItem.stock)
+        : undefined;
+
+    if (
+      typeof effectiveStock === "number" &&
+      effectiveStock > 0 &&
+      currentQty + requestedQty > effectiveStock
+    ) {
+      toast.warning(`Only ${effectiveStock} item(s) available in stock.`);
+      return false;
+    }
+
     const { price, salePrice, variantName } = resolveVariantPricing(product, variantSku);
 
     // Optimistic UI update for instant feedback
     setCart((prev) => {
-      const existingItem = prev.find(
+      const itemInPrev = prev.find(
         (item) => `${item.id || item._id}::${String(item.variantSku || "").trim()}` === key,
       );
-      if (existingItem) {
+      if (itemInPrev) {
         console.log("DEBUG: addToCart existing item incrementing");
         return prev.map((item) =>
           `${item.id || item._id}::${String(item.variantSku || "").trim()}` === key
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: Math.min(MAX_PRODUCT_QUANTITY, item.quantity + requestedQty) }
             : item,
         );
       }
@@ -158,7 +219,7 @@ export const CartProvider = ({ children }) => {
           variantName,
           price,
           salePrice,
-          quantity: 1,
+          quantity: Math.min(MAX_PRODUCT_QUANTITY, requestedQty),
           image: product.image || product.mainImage,
         },
       ];
@@ -170,13 +231,15 @@ export const CartProvider = ({ children }) => {
         const response = await customerApi.addToCart({
           productId: id,
           variantSku,
-          quantity: 1,
+          quantity: requestedQty,
         });
         pendingRequestsRef.current -= 1;
         await syncCart(response.data.result.items);
       } catch (error) {
         pendingRequestsRef.current -= 1;
         console.error("Error adding to cart on backend", error);
+        const errorMsg = error?.response?.data?.message || "Failed to add to cart";
+        toast.error(errorMsg);
         // Re-fetch entire cart to ensure consistency on error
         if (pendingRequestsRef.current === 0) {
           await fetchCart();
@@ -230,8 +293,37 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    const newQty = Math.max(0, currentItem.quantity + delta);
-    console.log("DEBUG: updateQuantity currentQty:", currentItem.quantity, "newQty:", newQty);
+    if (delta > 0 && currentItem.isOutOfStock) {
+      console.warn("Cannot increment out of stock item");
+      return;
+    }
+
+    const currentQty = Number(currentItem.quantity || 0);
+
+    if (delta > 0 && currentQty >= MAX_PRODUCT_QUANTITY) {
+      toast.warning(`Maximum ${MAX_PRODUCT_QUANTITY} units of this product can be ordered.`);
+      return;
+    }
+
+    const effectiveStock =
+      currentItem.availableStock !== undefined
+        ? Number(currentItem.availableStock)
+        : currentItem.stock !== undefined
+        ? Number(currentItem.stock)
+        : undefined;
+
+    if (
+      delta > 0 &&
+      typeof effectiveStock === "number" &&
+      effectiveStock > 0 &&
+      currentQty + delta > effectiveStock
+    ) {
+      toast.warning(`Only ${effectiveStock} item(s) available in stock.`);
+      return;
+    }
+
+    const newQty = Math.min(MAX_PRODUCT_QUANTITY, Math.max(0, currentQty + delta));
+    console.log("DEBUG: updateQuantity currentQty:", currentQty, "newQty:", newQty);
 
     if (newQty === 0) {
       removeFromCart(productId, normalizedVariantSku);
@@ -264,6 +356,8 @@ export const CartProvider = ({ children }) => {
       } catch (error) {
         pendingRequestsRef.current -= 1;
         console.error("Error updating quantity on backend", error);
+        const errorMsg = error?.response?.data?.message || "Failed to update quantity";
+        toast.error(errorMsg);
         if (pendingRequestsRef.current === 0) {
           await fetchCart();
         }

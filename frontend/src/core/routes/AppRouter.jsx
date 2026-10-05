@@ -61,6 +61,7 @@ const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'))
 const WarehouseMgmtModule = lazy(() => import('../../modules/warehouse-mgmt/routes/index'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
+import { CustomerNotificationProvider } from '../../modules/customer/context/CustomerNotificationContext';
 
 const CustomerLayoutWrapper = () => {
     useEffect(() => {
@@ -74,12 +75,14 @@ const CustomerLayoutWrapper = () => {
                     <CartProvider>
                         <CartAnimationProvider>
                             <ProductDetailProvider>
-                                <ScrollToTop />
-                                <CustomerLayout>
-                                    <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                                        <Outlet />
-                                    </Suspense>
-                                </CustomerLayout>
+                                <CustomerNotificationProvider>
+                                    <ScrollToTop />
+                                    <CustomerLayout>
+                                        <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
+                                            <Outlet />
+                                        </Suspense>
+                                    </CustomerLayout>
+                                </CustomerNotificationProvider>
                             </ProductDetailProvider>
                         </CartAnimationProvider>
                     </CartProvider>

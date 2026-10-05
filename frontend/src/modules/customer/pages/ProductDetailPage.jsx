@@ -274,9 +274,11 @@ const ProductDetailPage = () => {
                             <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-primary/20">
                                 {product.categoryId?.name || 'Essential'}
                             </span>
-                            <div className="flex items-center gap-1 text-orange-500 font-bold bg-orange-50 px-3 py-0.5 rounded-full text-xs">
-                                <Star size={12} fill="currentColor" /> 4.8 ({reviews.length > 0 ? reviews.length : '120+'})
-                            </div>
+                            {reviews.length > 0 && (
+                                <div className="flex items-center gap-1 text-orange-500 font-bold bg-orange-50 px-3 py-0.5 rounded-full text-xs">
+                                    <Star size={12} fill="currentColor" /> {(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)} ({reviews.length})
+                                </div>
+                            )}
                         </div>
 
                         <h1 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight mb-3">
@@ -316,12 +318,12 @@ const ProductDetailPage = () => {
                     )}
 
                     <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                        {product.stockStatus === "out_of_stock" || product.isOutOfStock || (typeof product.stock === "number" && product.stock <= 0) ? (
+                        {product?.stockStatus === "out_of_stock" || product?.isOutOfStock === true || (product?.stock !== undefined && product?.stock !== null && Number(product.stock) <= 0) || (product?.availableStock !== undefined && product?.availableStock !== null && Number(product.availableStock) <= 0) ? (
                             <Button
                                 disabled
                                 className="h-16 w-full sm:w-64 bg-slate-200 text-slate-400 text-lg font-black rounded-2xl shadow-none cursor-not-allowed uppercase"
                             >
-                                OUT OF STOCK
+                                INSUFFICIENT STOCK
                             </Button>
                         ) : quantity > 0 ? (
                             <div className="flex items-center bg-primary text-primary-foreground rounded-2xl h-16 w-full sm:w-auto px-2 shadow-xl shadow-brand-100">
@@ -348,8 +350,16 @@ const ProductDetailPage = () => {
                                 </div>
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
-                                    onClick={() => updateQuantity(product.id, 1, "")}
-                                    className="w-12 h-12 flex items-center justify-center hover:bg-white/20 rounded-xl transition-all"
+                                    onClick={() => {
+                                        if (quantity >= 10) {
+                                            showToast("Maximum 10 units of this product can be ordered.", "warning");
+                                            return;
+                                        }
+                                        updateQuantity(product.id, 1, "");
+                                    }}
+                                    disabled={quantity >= 10}
+                                    className={cn("w-12 h-12 flex items-center justify-center hover:bg-white/20 rounded-xl transition-all", quantity >= 10 && "opacity-40 cursor-not-allowed")}
+                                    title={quantity >= 10 ? "Maximum 10 units allowed" : "Increase quantity"}
                                 >
                                     <Plus size={24} strokeWidth={3} />
                                 </motion.button>
@@ -357,6 +367,10 @@ const ProductDetailPage = () => {
                         ) : (
                             <Button
                                 onClick={() => {
+                                    if (quantity >= 10) {
+                                        showToast("Maximum 10 units of this product can be ordered.", "warning");
+                                        return;
+                                    }
                                     addToCart(product);
                                     showToast(`${product.name} added to cart`, 'success');
                                 }}

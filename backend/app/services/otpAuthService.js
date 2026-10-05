@@ -263,7 +263,9 @@ export async function issueCustomerOtp({
   await customer.save();
 
   if (!isTest && !isMockOtpEnabled() && useRealSMS()) {
-    await dispatchCustomerOtpSms({ phone, otp });
+    console.log(`[REAL SMS] Dispatching OTP [${otp}] to ${phone} via SMS India Hub...`);
+    const smsResult = await dispatchCustomerOtpSms({ phone, otp });
+    console.log(`[REAL SMS] Provider response:`, smsResult?.rawResponse || smsResult);
     otpAuditLog("customer_otp_sms_dispatched", {
       phone: maskPhone(phone),
       flow,
@@ -271,6 +273,7 @@ export async function issueCustomerOtp({
       mode: "real",
     });
   } else {
+    console.log(`[MOCK/TEST OTP] Generated OTP for ${phone}: ${otp}`);
     otpAuditLog("customer_otp_mock_mode", {
       phone: maskPhone(phone),
       flow,

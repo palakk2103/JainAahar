@@ -161,6 +161,20 @@ const CheckoutPage = () => {
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
 
+  const hasOutOfStockItems = useMemo(() => {
+    return (cart || []).some(
+      (item) =>
+        item?.isOutOfStock === true ||
+        item?.stockStatus === "out_of_stock" ||
+        (item?.stock !== undefined && item?.stock !== null && Number(item.stock) <= 0) ||
+        (item?.availableStock !== undefined && item?.availableStock !== null && Number(item.availableStock) <= 0)
+    );
+  }, [cart]);
+
+  const hasExceededQuantityItems = useMemo(() => {
+    return (cart || []).some((item) => Number(item?.quantity || 0) > 10);
+  }, [cart]);
+
   /**
    * @typedef {Object} AddressInfo
    * @property {string} [id]
@@ -1103,6 +1117,16 @@ const CheckoutPage = () => {
   }, [cartProductIdKey]);
 
   const handlePlaceOrder = async () => {
+    if (hasOutOfStockItems) {
+      showToast("Please remove out of stock items from your cart before placing your order.", "error");
+      return;
+    }
+
+    if (hasExceededQuantityItems) {
+      showToast("Maximum 10 units of this product can be ordered. Please adjust quantities.", "error");
+      return;
+    }
+
     const orderAddress = buildAddressForOrder();
     if (!orderAddress || !orderAddress.address) {
       showToast("Please add or select a delivery address first", "error");
@@ -1399,6 +1423,21 @@ const CheckoutPage = () => {
               displayAddress={displayAddress}
             />
 
+            {/* Out of Stock Warning Banner */}
+            {hasOutOfStockItems && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 text-red-700">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <X className="w-5 h-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-sm text-red-800">Items Out of Stock</h4>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    One or more items in your cart are currently out of stock. Please remove them before placing the order.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Cart Summary */}
             <CheckoutCartSummary
               cart={cart}
@@ -1467,20 +1506,36 @@ const CheckoutPage = () => {
 
             {/* Desktop Slide to Pay */}
             <div className="hidden lg:block">
-              <SlideToPay
-                amount={finalAmountToPay}
-                onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
-                isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
-                text={
-                  !hasValidAddress
-                    ? "Add Address to Order"
-                    : walletAmountToUse > 0 && finalAmountToPay === 0
-                      ? "Pay via Wallet (₹0)"
-                      : finalAmountToPay === 0
-                        ? "Place Free Order"
-                        : "Order Now"
-                }
-              />
+              {hasOutOfStockItems ? (
+                <button
+                  disabled
+                  className="w-full bg-slate-200 text-slate-500 font-bold py-4 rounded-2xl cursor-not-allowed uppercase tracking-wider text-sm border border-slate-300"
+                >
+                  Remove Out of Stock Items to Order
+                </button>
+              ) : hasExceededQuantityItems ? (
+                <button
+                  disabled
+                  className="w-full bg-slate-200 text-slate-500 font-bold py-4 rounded-2xl cursor-not-allowed uppercase tracking-wider text-sm border border-slate-300"
+                >
+                  Adjust Quantity (Max 10 per product)
+                </button>
+              ) : (
+                <SlideToPay
+                  amount={finalAmountToPay}
+                  onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
+                  isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
+                  text={
+                    !hasValidAddress
+                      ? "Add Address to Order"
+                      : walletAmountToUse > 0 && finalAmountToPay === 0
+                        ? "Pay via Wallet (₹0)"
+                        : finalAmountToPay === 0
+                          ? "Place Free Order"
+                          : "Order Now"
+                  }
+                />
+              )}
               <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
                 🔒 SSL encrypted secure checkout
               </p>
@@ -1492,20 +1547,36 @@ const CheckoutPage = () => {
       {/* Sticky Footer — Mobile Only */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 rounded-t-3xl">
         <div className="max-w-4xl mx-auto">
-          <SlideToPay
-            amount={finalAmountToPay}
-            onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
-            isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
-            text={
-              !hasValidAddress
-                ? "Add Address to Proceed"
-                : walletAmountToUse > 0 && finalAmountToPay === 0
-                  ? "Pay via Wallet (₹0)"
-                  : finalAmountToPay === 0
-                    ? "Place Free Order"
-                    : "Slide to Pay"
-            }
-          />
+          {hasOutOfStockItems ? (
+            <button
+              disabled
+              className="w-full bg-slate-200 text-slate-500 font-bold py-4 rounded-2xl cursor-not-allowed uppercase tracking-wider text-sm border border-slate-300"
+            >
+              Remove Out of Stock Items to Order
+            </button>
+          ) : hasExceededQuantityItems ? (
+            <button
+              disabled
+              className="w-full bg-slate-200 text-slate-500 font-bold py-4 rounded-2xl cursor-not-allowed uppercase tracking-wider text-sm border border-slate-300"
+            >
+              Adjust Quantity (Max 10 per product)
+            </button>
+          ) : (
+            <SlideToPay
+              amount={finalAmountToPay}
+              onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
+              isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
+              text={
+                !hasValidAddress
+                  ? "Add Address to Proceed"
+                  : walletAmountToUse > 0 && finalAmountToPay === 0
+                    ? "Pay via Wallet (₹0)"
+                    : finalAmountToPay === 0
+                      ? "Place Free Order"
+                      : "Slide to Pay"
+              }
+            />
+          )}
         </div>
       </div>
 

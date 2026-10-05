@@ -205,16 +205,24 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
         msg: message || buildMessage(otp),
         fl: "0",
         gwid: config.gatewayId,
+        Channel: "Trans",
+        Route: config.routeId || "1",
         ...(config.dltTemplateId
           ? {
+              dlt_template_id: config.dltTemplateId,
               DLT_TE_ID: config.dltTemplateId,
               TE_ID: config.dltTemplateId,
+              TemplateID: config.dltTemplateId,
+              dlttemplateid: config.dltTemplateId,
             }
           : {}),
         ...(config.peId
           ? {
+              dlt_entity_id: config.peId,
               PE_ID: config.peId,
               EntityId: config.peId,
+              EntityID: config.peId,
+              entityid: config.peId,
             }
           : {}),
       };

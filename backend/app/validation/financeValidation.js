@@ -14,7 +14,7 @@ const orderItemSchema = Joi.object({
   variantSku: Joi.string().allow("", null).optional(),
   // Legacy/alternate field name used by some clients/services.
   variantSlot: Joi.string().allow("", null).optional(),
-  quantity: Joi.number().integer().min(1).required(),
+  quantity: Joi.number().integer().min(1).max(10).required(),
   price: Joi.number().min(0).optional(),
   image: Joi.string().allow("", null),
 }).or("product", "productId", "id");

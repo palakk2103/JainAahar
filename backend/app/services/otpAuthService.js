@@ -81,11 +81,17 @@ async function dispatchCustomerOtpSms({ phone, otp }) {
 }
 
 
+// Numbers that skip real SMS and accept the fixed OTP 1234. Kept as a code
+// default (not env-only) so it survives a deploy without touching the server
+// .env. Override with TEST_PHONES to change the list.
+const DEFAULT_TEST_PHONES = "9999999999,9111966732";
+
 export function isTestPhone(phone) {
   const raw = String(phone || "").replace(/\D/g, "").slice(-10);
-  const testPhones = (process.env.TEST_PHONES || "9999999999")
+  const testPhones = (process.env.TEST_PHONES || DEFAULT_TEST_PHONES)
     .split(",")
-    .map((p) => p.trim());
+    .map((p) => p.trim())
+    .filter(Boolean);
   return testPhones.includes(raw);
 }
 

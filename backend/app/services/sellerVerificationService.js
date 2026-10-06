@@ -315,7 +315,7 @@ export async function issueSellerVerificationOtp({
     }
   }
 
-  let otp = "1234";
+  let otp = generateSellerOtp(normalizedChannel);
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES() * 60 * 1000);
 
   if (!session) {
@@ -414,7 +414,7 @@ export async function verifySellerOtpCode({
     throw error;
   }
 
-  const isValid = code === "1234" || hashOtp(normalizedChannel, target, code) === session.otpHash;
+  const isValid = hashOtp(normalizedChannel, target, code) === session.otpHash;
   if (!isValid) {
     session.failedAttempts = (session.failedAttempts || 0) + 1;
     await session.save();
@@ -495,7 +495,7 @@ export async function issueSellerResetOtp({
     }
   }
 
-  let otp = "1234";
+  let otp = generateSellerOtp(normalizedChannel);
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES() * 60 * 1000);
 
   if (!session) {

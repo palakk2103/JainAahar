@@ -157,7 +157,9 @@ function providerSnippet(raw) {
 function mapSmsIndiaError(code) {
   const messages = {
     "001": "SMS India HUB configuration issue",
-    "006": "SMS India HUB DLT template mismatch",
+    "006":
+      "SMS India HUB rejected the message body: it must match the DLT-approved " +
+      "template for SMS_INDIA_HUB_DLT_TEMPLATE_ID exactly. Check SMS_INDIA_HUB_TEMPLATE_TEXT.",
     "007": "SMS India HUB API key is invalid",
     "021": "SMS India HUB credits exhausted",
   };
@@ -205,8 +207,6 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
         msg: message || buildMessage(otp),
         fl: "0",
         gwid: config.gatewayId,
-        Channel: "Trans",
-        Route: config.routeId || "1",
         ...(config.dltTemplateId
           ? {
               dlt_template_id: config.dltTemplateId,

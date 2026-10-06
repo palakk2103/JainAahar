@@ -31,7 +31,7 @@ export function formatWarehouseForShiprocket(warehouse) {
   return {
     pickup_location: pickupNickname,
     name: warehouse.name || "Warehouse Manager",
-    email: warehouse.email || "warehouse@jainahar.com",
+    email: warehouse.email || "warehouse@jainaahar.in",
     phone: String(warehouse.phone || "9999999999").replace(/\D/g, "").slice(-10),
     address: (warehouse.address || "Warehouse Address").slice(0, 80),
     address_2: (warehouse.locality || "").slice(0, 80),

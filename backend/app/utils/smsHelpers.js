@@ -25,10 +25,22 @@ export function generateOTP(length = getOtpLength()) {
 
 export function buildMessage(otp) {
   const minutes = parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
-  const template = String(
-    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT ||
-      "Your OTP is {{OTP}}. Valid for {{MINUTES}} minutes.",
-  );
+  const configuredTemplate = String(
+    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT || "",
+  ).trim();
+
+  // SMS India Hub validates the body against the DLT-approved template and
+  // rejects anything else with ErrorCode 006 ("Invalid template text"), so a
+  // generic fallback would silently never deliver. Fail loudly instead.
+  if (!configuredTemplate) {
+    const error = new Error(
+      "Missing SMS config: SMS_INDIA_HUB_TEMPLATE_TEXT must match the DLT-approved template body",
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const template = configuredTemplate;
   const appName = String(process.env.APP_NAME || "Noyo").trim();
 
   // Primary replacements for common tags

@@ -81,6 +81,7 @@ describe("sms OTP service", () => {
     delete process.env.SMS_INDIA_HUB_SENDER_ID;
     delete process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID;
     delete process.env.SMS_INDIA_HUB_URL;
+    delete process.env.SMS_INDIA_HUB_TEMPLATE_TEXT;
   });
 
   it("sends OTP in mock mode, replaces older OTP, and skips SMS provider", async () => {
@@ -124,6 +125,7 @@ describe("sms OTP service", () => {
     process.env.SMS_INDIA_HUB_API_KEY = "api";
     process.env.SMS_INDIA_HUB_SENDER_ID = "SENDER";
     process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID = "template";
+    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT = "Your OTP is ##var##.";
     process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
 
     mockSellerFindOne.mockResolvedValue({ _id: "seller-1", phone: "9876543210" });
@@ -136,8 +138,9 @@ describe("sms OTP service", () => {
         purpose: "LOGIN",
       }),
     ).rejects.toMatchObject({
-      message: "SMS India HUB DLT template mismatch",
+      message: expect.stringContaining("SMS_INDIA_HUB_TEMPLATE_TEXT"),
       providerCode: "006",
+      statusCode: 500,
     });
   });
 
@@ -148,6 +151,7 @@ describe("sms OTP service", () => {
     process.env.SMS_INDIA_HUB_SENDER_ID = "ANAMGM";
     process.env.SMS_CAMPAIGN_ID = "12719";
     process.env.SMS_ROUTE_ID = "100768";
+    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT = "Your OTP is ##var##.";
     process.env.SMS_INDIA_HUB_URL = "https://login.bulksmssender.in/app/smsapi/index.php";
 
     mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
@@ -176,6 +180,96 @@ describe("sms OTP service", () => {
     );
     expect(result.sent).toBe(true);
     expect(result.provider).toBe("bulksmssender");
+  });
+
+  it("generates a random OTP in real mode and stores a hash of what it sent", async () => {
+    process.env.USE_MOCK_OTP = "false";
+    process.env.USE_REAL_SMS = "true";
+    process.env.SMS_INDIA_HUB_API_KEY = "api";
+    process.env.SMS_INDIA_HUB_SENDER_ID = "SENDER";
+    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT = "Your OTP is ##var##.";
+    process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
+
+    mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
+    mockAxiosGet.mockResolvedValue({ data: { ErrorCode: "000", ErrorMessage: "Done" } });
+    mockOtpCreate.mockResolvedValue({});
+
+    const seen = new Set();
+
+    for (let i = 0; i < 10; i += 1) {
+      const result = await sendSmsOtp({
+        mobile: "9876543210",
+        userType: "Customer",
+        purpose: "LOGIN",
+      });
+
+      expect(result.provider).toBe("sms_india_hub");
+      // Real mode must never leak the code back to the caller.
+      expect(result.mockOtp).toBeUndefined();
+
+      const sentMsg = mockAxiosGet.mock.calls.at(-1)[1].params.msg;
+      const sentOtp = sentMsg.match(/\d{4}/)[0];
+      seen.add(sentOtp);
+
+      // The hash persisted for verification must be of the code actually sent.
+      const persistedHash = mockOtpCreate.mock.calls.at(-1)[0].otpHash;
+      expect(persistedHash).toBe(
+        __testables.hashOtp("9876543210", sentOtp, "Customer", "LOGIN"),
+      );
+    }
+
+    // Regression guard: the OTP used to be hardcoded to "1234".
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("refuses to send when SMS_INDIA_HUB_TEMPLATE_TEXT is not configured", async () => {
+    process.env.USE_MOCK_OTP = "false";
+    process.env.USE_REAL_SMS = "true";
+    process.env.SMS_INDIA_HUB_API_KEY = "api";
+    process.env.SMS_INDIA_HUB_SENDER_ID = "SENDER";
+    process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
+    // SMS_INDIA_HUB_TEMPLATE_TEXT deliberately left unset.
+
+    mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
+
+    await expect(
+      sendSmsOtp({
+        mobile: "9876543210",
+        userType: "Customer",
+        purpose: "LOGIN",
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining("SMS_INDIA_HUB_TEMPLATE_TEXT"),
+      statusCode: 500,
+    });
+
+    // Must fail before burning a provider credit on a body DLT will reject.
+    expect(mockAxiosGet).not.toHaveBeenCalled();
+    expect(mockOtpCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a wrong OTP of 1234 instead of accepting it as a bypass", async () => {
+    const session = makeSession({
+      otpHash: __testables.hashOtp("9876543210", "5678", "Customer", "LOGIN"),
+      attempts: 0,
+      maxAttempts: 5,
+    });
+    mockOtpFindOne.mockReturnValue({ select: jest.fn().mockResolvedValue(session) });
+
+    await expect(
+      verifySmsOtp({
+        mobile: "9876543210",
+        otp: "1234",
+        userType: "Customer",
+        purpose: "LOGIN",
+      }),
+    ).rejects.toMatchObject({
+      message: "Invalid OTP",
+      statusCode: 400,
+    });
+
+    expect(session.attempts).toBe(1);
+    expect(mockJwtSign).not.toHaveBeenCalled();
   });
 
   it("verifies a valid login OTP, deletes the session, and returns a JWT", async () => {

@@ -395,7 +395,7 @@ export const PickupAddresses = () => {
                   value={formData.email}
                   onChange={handleChange("email")}
                   className="ds-input w-full"
-                  placeholder="e.g. warehouse@jainahar.com"
+                  placeholder="e.g. warehouse@jainaahar.in"
                   required
                 />
               </div>

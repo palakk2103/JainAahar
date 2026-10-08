@@ -24,6 +24,8 @@ import {
   getOrCreateWallet,
 } from "./finance/walletService.js";
 import { roundCurrency } from "../utils/money.js";
+import { sendSmsIndiaHubOrderConfirmation } from "./smsIndiaHubService.js";
+import { useRealSMS } from "../utils/otp.js";
 import LedgerEntry from "../models/ledgerEntry.js";
 import {
   generateUniqueCheckoutGroupId,
@@ -923,6 +925,32 @@ export async function placeOrderAtomic({
         });
       }
     }
+
+    // Order-confirmation SMS, fire-and-forget: the order is already committed,
+    // so a provider outage must never surface as a failed checkout.
+    void (async () => {
+      try {
+        if (!useRealSMS()) return;
+        const customer = await User.findById(customerId).select("phone").lean();
+        const phone = customer?.phone;
+        if (!phone) return;
+        for (const order of orders) {
+          await sendSmsIndiaHubOrderConfirmation({
+            phone,
+            orderId: order.orderId,
+          }).catch((error) => {
+            logger.warn("[placeOrderAtomic] Order confirmation SMS failed", {
+              orderId: order.orderId,
+              message: error.message,
+            });
+          });
+        }
+      } catch (error) {
+        logger.warn("[placeOrderAtomic] Order confirmation SMS skipped", {
+          message: error.message,
+        });
+      }
+    })();
 
     if (pendingLowStockAlerts.length > 0 && await isLowStockAlertsEnabled()) {
       pendingLowStockAlerts.forEach((alertPayload) => {

@@ -1,7 +1,12 @@
 import http from "http";
 import https from "https";
 import axios from "axios";
-import { buildMessage, normalizeMobile, toIndianNumber } from "../utils/smsHelpers.js";
+import {
+  buildMessage,
+  buildOrderMessage,
+  normalizeMobile,
+  toIndianNumber,
+} from "../utils/smsHelpers.js";
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
@@ -25,16 +30,12 @@ function getSmsIndiaConfig() {
     dltTemplateId: String(
       process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID ||
         process.env.SMS_INDIA_HUB_TEMPLATE_ID ||
-        process.env.SMS_INDIA_HUB_TM_ID ||
         process.env.SMS_TEMPLATE_ID ||
-        process.env.SMS_TM_ID ||
         process.env.SMS_DLT_TEMPLATE_ID ||
         "",
     ).trim(),
-    tmId: String(
-      process.env.SMS_INDIA_HUB_TM_ID ||
-        process.env.SMS_TM_ID ||
-        "",
+    orderTemplateId: String(
+      process.env.SMS_INDIA_HUB_ORDER_TEMPLATE_ID || "",
     ).trim(),
     gatewayId: String(
       process.env.SMS_INDIA_HUB_GWID ||
@@ -164,7 +165,9 @@ function providerSnippet(raw) {
 function mapSmsIndiaError(code) {
   const messages = {
     "001": "SMS India HUB configuration issue",
-    "006": "SMS India HUB DLT template mismatch",
+    "006":
+      "SMS India HUB rejected the message body: it must match the DLT-approved " +
+      "template for SMS_INDIA_HUB_DLT_TEMPLATE_ID exactly. Check SMS_INDIA_HUB_TEMPLATE_TEXT.",
     "007": "SMS India HUB API key is invalid",
     "021": "SMS India HUB credits exhausted",
   };
@@ -175,8 +178,11 @@ function mapSmsIndiaError(code) {
   return error;
 }
 
-export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
+// Every DLT template is a separate approved body with its own id, so the
+// template id travels with the message rather than coming from config.
+async function dispatchSms({ phone, message, templateId }) {
   const config = getSmsIndiaConfig();
+  const dltTemplateId = String(templateId || config.dltTemplateId || "").trim();
   const requiredConfig = {
     apiKey: config.apiKey,
     senderId: config.senderId,
@@ -201,27 +207,24 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
         type: "text",
         contacts: normalizeMobile(phone),
         senderid: config.senderId,
-        msg: message || buildMessage(otp),
-        ...(config.dltTemplateId ? { template_id: config.dltTemplateId } : {}),
+        msg: message,
+        ...(dltTemplateId ? { template_id: dltTemplateId } : {}),
         ...(config.peId ? { pe_id: config.peId } : {}),
-        ...(config.tmId ? { tm_id: config.tmId, tmid: config.tmId } : {}),
       }
     : {
         APIKey: config.apiKey,
         msisdn: toIndianNumber(phone),
         sid: config.senderId,
-        msg: message || buildMessage(otp),
+        msg: message,
         fl: "0",
         gwid: config.gatewayId,
-        Channel: "Trans",
-        Route: config.routeId || "1",
-        ...(config.dltTemplateId
+        ...(dltTemplateId
           ? {
-              dlt_template_id: config.dltTemplateId,
-              DLT_TE_ID: config.dltTemplateId,
-              TE_ID: config.dltTemplateId,
-              TemplateID: config.dltTemplateId,
-              dlttemplateid: config.dltTemplateId,
+              dlt_template_id: dltTemplateId,
+              DLT_TE_ID: dltTemplateId,
+              TE_ID: dltTemplateId,
+              TemplateID: dltTemplateId,
+              dlttemplateid: dltTemplateId,
             }
           : {}),
         ...(config.peId
@@ -231,14 +234,6 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
               EntityId: config.peId,
               EntityID: config.peId,
               entityid: config.peId,
-            }
-          : {}),
-        ...(config.tmId
-          ? {
-              tm_id: config.tmId,
-              TM_ID: config.tmId,
-              tmid: config.tmId,
-              TMID: config.tmId,
             }
           : {}),
       };
@@ -283,6 +278,34 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
     providerCode,
     rawResponse: body,
   };
+}
+
+export async function sendSmsIndiaHubOtp({ phone, otp, message, templateId }) {
+  return dispatchSms({
+    phone,
+    message: message || buildMessage(otp),
+    templateId,
+  });
+}
+
+export async function sendSmsIndiaHubOrderConfirmation({
+  phone,
+  orderId,
+  message,
+}) {
+  const config = getSmsIndiaConfig();
+  if (!config.orderTemplateId) {
+    const error = new Error(
+      "Missing SMS config: SMS_INDIA_HUB_ORDER_TEMPLATE_ID",
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+  return dispatchSms({
+    phone,
+    message: message || buildOrderMessage(orderId),
+    templateId: config.orderTemplateId,
+  });
 }
 
 export const __testables = {

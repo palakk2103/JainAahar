@@ -12,6 +12,14 @@ import {
 import { getRedisClient } from "../config/redis.js";
 import logger from "./logger.js";
 
+// Customer-facing fallback link, sent over WhatsApp when a shipment has no
+// tracking id yet. Must be a live public URL.
+const PUBLIC_SITE_URL = String(
+  process.env.PUBLIC_SITE_URL || "https://jainaahar.in",
+)
+  .trim()
+  .replace(/\/+$/, "");
+
 // Local in-memory deduplication store fallback
 const localDedupeMap = new Map();
 let cachedSettings = null;
@@ -525,7 +533,9 @@ export async function sendShipmentNotification(eventType, payload = {}) {
     const trackingUrl =
       shipment.trackingUrl ||
       payload.trackingUrl ||
-      (shipmentId ? `https://shiprocket.co/tracking/${shipmentId}` : "https://jainahar.com");
+      (shipmentId
+        ? `https://shiprocket.co/tracking/${shipmentId}`
+        : PUBLIC_SITE_URL);
 
     let params = [];
     switch (eventType) {

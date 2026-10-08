@@ -20,7 +20,8 @@ const Header = () => {
         currentPath.includes('terms') ||
         currentPath.includes('about') ||
         currentPath.includes('profile') ||
-        currentPath.startsWith('/checkout');
+        currentPath.startsWith('/checkout') ||
+        currentPath.startsWith('/search');
 
     if (isHiddenPage) {
         return null;

@@ -1,6 +1,7 @@
 import React from "react";
 import { Clipboard, Tag, Heart, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
+import { MINIMUM_ORDER_VALUE } from "@/core/constants/order";
 
 /**
  * CheckoutPricingBreakdown
@@ -36,6 +37,11 @@ function CheckoutPricingBreakdown({
   const handlingFee = pricingPreview?.handlingFeeCharged || 0;
   const tipAmount = pricingPreview?.tipTotal || selectedTip || 0;
   const taxAmount = pricingPreview?.taxTotal || 0;
+
+  const eligibleSubtotal = Number(pricingPreview?.productSubtotal ?? cartTotal ?? 0);
+  const isBelowMinOrder = eligibleSubtotal < MINIMUM_ORDER_VALUE;
+  const remainingMinOrder = Math.max(0, MINIMUM_ORDER_VALUE - eligibleSubtotal);
+  const minOrderProgress = Math.min(100, Math.max(0, Math.round((eligibleSubtotal / MINIMUM_ORDER_VALUE) * 100)));
 
   return (
     <>
@@ -82,6 +88,28 @@ function CheckoutPricingBreakdown({
               ₹{pricingPreview?.productSubtotal ?? cartTotal}
             </span>
           </div>
+
+          {isBelowMinOrder && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-2 p-3 bg-orange-50/80 rounded-2xl border border-orange-200/80 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-orange-950">
+                <span>Minimum Order: ₹{MINIMUM_ORDER_VALUE}</span>
+                <span>₹{eligibleSubtotal} / ₹{MINIMUM_ORDER_VALUE}</span>
+              </div>
+              <div className="w-full bg-orange-200/70 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-orange-400 to-[#f97316] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${minOrderProgress}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-bold text-orange-800">
+                Add ₹{remainingMinOrder} more to place your order.
+              </p>
+            </motion.div>
+          )}
+
           <div className="flex justify-between items-center px-2">
             <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
               Delivery Fee

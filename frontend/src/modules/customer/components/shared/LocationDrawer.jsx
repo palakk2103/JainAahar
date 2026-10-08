@@ -116,6 +116,17 @@ const LocationDrawer = ({ isOpen, onClose }) => {
     };
   }, [isOpen]);
 
+  // Close drawer on mobile back gesture
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleAppBack = (e) => {
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener("app:back", handleAppBack);
+    return () => window.removeEventListener("app:back", handleAppBack);
+  }, [isOpen, onClose]);
+
   const handleSelectCurrentLocation = (e) => {
     e.preventDefault();
     e.stopPropagation();

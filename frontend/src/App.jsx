@@ -18,7 +18,21 @@ function App() {
         const setupCapacitorListeners = async () => {
             try {
                 await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-                    if (canGoBack) {
+                    // Check if an active modal or sheet intercepts the back action
+                    const backEvent = new CustomEvent('app:back', { cancelable: true });
+                    const isHandled = !window.dispatchEvent(backEvent);
+                    if (isHandled) {
+                        return;
+                    }
+
+                    const currentPath = window.location.pathname;
+                    const isRoot = currentPath === '/' || currentPath === '/home';
+
+                    if (!isRoot && canGoBack) {
+                        window.history.back();
+                    } else if (isRoot) {
+                        CapacitorApp.exitApp();
+                    } else if (canGoBack) {
                         window.history.back();
                     } else {
                         CapacitorApp.exitApp();

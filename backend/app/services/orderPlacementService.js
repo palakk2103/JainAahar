@@ -11,6 +11,7 @@ import {
   LEDGER_TRANSACTION_TYPE,
   ORDER_PAYMENT_STATUS,
   OWNER_TYPE,
+  MINIMUM_ORDER_VALUE,
   isWalletRedemptionReducesPayableEnabled,
   isServerSideCouponEngineEnabled,
 } from "../constants/finance.js";
@@ -552,6 +553,24 @@ export async function placeOrderAtomic({
       paymentMode,
       session,
     });
+
+    // Enforce Minimum Order Value (₹499) on server-recalculated eligible productSubtotal
+    const eligibleOrderAmount = Number(pricingSnapshot.aggregateBreakdown?.productSubtotal || 0);
+    if (eligibleOrderAmount < MINIMUM_ORDER_VALUE) {
+      const remainingAmount = Math.max(0, MINIMUM_ORDER_VALUE - eligibleOrderAmount);
+      const err = new Error(
+        `Minimum order value is ₹${MINIMUM_ORDER_VALUE}. Add ₹${remainingAmount} more to place your order.`,
+      );
+      err.statusCode = 400;
+      err.code = "MINIMUM_ORDER_VALUE_NOT_MET";
+      err.data = {
+        code: "MINIMUM_ORDER_VALUE_NOT_MET",
+        minimumOrderValue: MINIMUM_ORDER_VALUE,
+        currentOrderValue: eligibleOrderAmount,
+        remainingAmount,
+      };
+      throw err;
+    }
 
     const isFullyPaidByWallet = walletAmount > 0 && Number(pricingSnapshot.aggregateBreakdown?.grandTotal || 0) === 0;
     const checkoutGroupId = await generateUniqueCheckoutGroupId({ session });

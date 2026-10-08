@@ -74,6 +74,7 @@ import CheckoutCouponSection from "./checkout/components/CheckoutCouponSection";
 import CheckoutRecommendedProducts from "./checkout/components/CheckoutRecommendedProducts";
 import CheckoutWishlistSection from "./checkout/components/CheckoutWishlistSection";
 import CheckoutOrderSuccess from "./checkout/components/CheckoutOrderSuccess";
+import { MINIMUM_ORDER_VALUE } from "@/core/constants/order";
 
 const CheckoutPage = () => {
   const {
@@ -174,6 +175,13 @@ const CheckoutPage = () => {
   const hasExceededQuantityItems = useMemo(() => {
     return (cart || []).some((item) => Number(item?.quantity || 0) > 10);
   }, [cart]);
+
+  const eligibleOrderAmount = useMemo(() => {
+    return Number(pricingPreview?.productSubtotal ?? cartTotal ?? 0);
+  }, [pricingPreview?.productSubtotal, cartTotal]);
+
+  const isBelowMinOrder = eligibleOrderAmount < MINIMUM_ORDER_VALUE;
+  const minOrderRemaining = Math.max(0, MINIMUM_ORDER_VALUE - eligibleOrderAmount);
 
   /**
    * @typedef {Object} AddressInfo
@@ -1127,6 +1135,11 @@ const CheckoutPage = () => {
       return;
     }
 
+    if (isBelowMinOrder) {
+      showToast(`Minimum order value is ₹${MINIMUM_ORDER_VALUE}. Add ₹${minOrderRemaining} more to place your order.`, "error");
+      return;
+    }
+
     const orderAddress = buildAddressForOrder();
     if (!orderAddress || !orderAddress.address) {
       showToast("Please add or select a delivery address first", "error");
@@ -1520,6 +1533,18 @@ const CheckoutPage = () => {
                 >
                   Adjust Quantity (Max 10 per product)
                 </button>
+              ) : isBelowMinOrder ? (
+                <div className="flex flex-col gap-1.5 items-center">
+                  <button
+                    disabled
+                    className="w-full bg-slate-200 text-slate-500 font-bold py-4 rounded-2xl cursor-not-allowed uppercase tracking-wider text-sm border border-slate-300"
+                  >
+                    Add ₹{minOrderRemaining} more to Order
+                  </button>
+                  <span className="text-[11px] text-amber-700 font-bold text-center">
+                    Minimum order value is ₹{MINIMUM_ORDER_VALUE}. Add ₹{minOrderRemaining} more to continue.
+                  </span>
+                </div>
               ) : (
                 <SlideToPay
                   amount={finalAmountToPay}
@@ -1561,6 +1586,18 @@ const CheckoutPage = () => {
             >
               Adjust Quantity (Max 10 per product)
             </button>
+          ) : isBelowMinOrder ? (
+            <div className="flex flex-col gap-1.5 items-center">
+              <button
+                disabled
+                className="w-full bg-slate-200 text-slate-500 font-bold py-4 rounded-2xl cursor-not-allowed uppercase tracking-wider text-sm border border-slate-300"
+              >
+                Add ₹{minOrderRemaining} more to Order
+              </button>
+              <span className="text-[11px] text-amber-700 font-bold text-center">
+                Minimum order value is ₹{MINIMUM_ORDER_VALUE}. Add ₹{minOrderRemaining} more to continue.
+              </span>
+            </div>
           ) : (
             <SlideToPay
               amount={finalAmountToPay}

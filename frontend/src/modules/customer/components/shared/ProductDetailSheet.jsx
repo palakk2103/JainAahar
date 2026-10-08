@@ -676,7 +676,7 @@ const ProductDetailSheet = () => {
                                             >
                                                 <Link
                                                     to="/checkout"
-                                                    onClick={closeProduct}
+                                                    onClick={() => closeProduct({ fromNavigation: true })}
                                                     className="w-[80%] bg-gradient-to-r from-primary to-[var(--brand-500)] text-white h-[40px] rounded-xl flex items-center justify-between px-4 shadow-md shadow-brand-200/40 hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-[0.98]"
                                                 >
                                                     <div className="flex items-center gap-2">
@@ -1229,7 +1229,7 @@ const ProductDetailSheet = () => {
                                 {/* Left Side: Cart Icon with Badge */}
                                 <Link
                                     to="/checkout"
-                                    onClick={closeProduct}
+                                    onClick={() => closeProduct({ fromNavigation: true })}
                                     className="relative w-14 h-14 bg-white border border-slate-100 rounded-[20px] shadow-sm flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all flex-shrink-0"
                                 >
                                     <ShoppingCart size={22} className="text-slate-800" />

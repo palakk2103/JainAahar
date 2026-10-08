@@ -56,9 +56,11 @@ Redis is **mandatory in production** (`NODE_ENV=production`). Startup fails if n
 | `OTP_SEND_RATE_LIMIT_MAX` | `5` | No | Max send OTP requests per window |
 | `OTP_VERIFY_RATE_LIMIT_WINDOW_MS` | `900000` | No | Verify OTP rate-limit window |
 | `OTP_VERIFY_RATE_LIMIT_MAX` | `10` | No | Max verify OTP requests per window |
-| `SMS_INDIA_HUB_API_KEY` | â€” | Real SMS: **Yes** | SMS India HUB API key |
-| `SMS_INDIA_HUB_SENDER_ID` | â€” | Real SMS: **Yes** | DLT-registered sender ID |
-| `SMS_INDIA_HUB_DLT_TEMPLATE_ID` | â€” | Real SMS: **Yes** | Approved DLT template ID |
+| `SMS_INDIA_HUB_API_KEY` | — | Real SMS: **Yes** | SMS India HUB API key |
+| `SMS_INDIA_HUB_SENDER_ID` | — | Real SMS: **Yes** | DLT-registered sender ID |
+| `SMS_INDIA_HUB_DLT_TEMPLATE_ID` | — | Real SMS: **Yes** | Approved DLT template ID (Content Template ID / TM ID) |
+| `SMS_INDIA_HUB_PE_ID` | — | Recommended | DLT Principal Entity ID |
+| `SMS_INDIA_HUB_TM_ID` | — | Optional | DLT Telemarketer ID / Template ID alias |
 | `SMS_INDIA_HUB_URL` | `http://cloud.smsindiahub.in/vendorsms/pushsms.aspx` | No | SMS India HUB endpoint |
 | `SMS_INDIA_HUB_TIMEOUT_MS` | `10000` | No | SMS provider request timeout |
 

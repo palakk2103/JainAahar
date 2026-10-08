@@ -25,8 +25,15 @@ function getSmsIndiaConfig() {
     dltTemplateId: String(
       process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID ||
         process.env.SMS_INDIA_HUB_TEMPLATE_ID ||
+        process.env.SMS_INDIA_HUB_TM_ID ||
         process.env.SMS_TEMPLATE_ID ||
+        process.env.SMS_TM_ID ||
         process.env.SMS_DLT_TEMPLATE_ID ||
+        "",
+    ).trim(),
+    tmId: String(
+      process.env.SMS_INDIA_HUB_TM_ID ||
+        process.env.SMS_TM_ID ||
         "",
     ).trim(),
     gatewayId: String(
@@ -197,6 +204,7 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
         msg: message || buildMessage(otp),
         ...(config.dltTemplateId ? { template_id: config.dltTemplateId } : {}),
         ...(config.peId ? { pe_id: config.peId } : {}),
+        ...(config.tmId ? { tm_id: config.tmId, tmid: config.tmId } : {}),
       }
     : {
         APIKey: config.apiKey,
@@ -223,6 +231,14 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
               EntityId: config.peId,
               EntityID: config.peId,
               entityid: config.peId,
+            }
+          : {}),
+        ...(config.tmId
+          ? {
+              tm_id: config.tmId,
+              TM_ID: config.tmId,
+              tmid: config.tmId,
+              TMID: config.tmId,
             }
           : {}),
       };

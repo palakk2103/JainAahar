@@ -1,13 +1,18 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { formatWeight } from '@/core/utils/formatUtils';
+import { MINIMUM_ORDER_VALUE } from '@/core/constants/order';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
     const { cart, cartTotal } = useCart();
     const navigate = useNavigate();
+
+    const isBelowMinOrder = cartTotal < MINIMUM_ORDER_VALUE;
+    const remainingAmount = Math.max(0, MINIMUM_ORDER_VALUE - cartTotal);
+    const progressPercentage = Math.min(100, Math.max(0, Math.round((cartTotal / MINIMUM_ORDER_VALUE) * 100)));
 
     const hasOutOfStockItems = React.useMemo(() => {
         return cart.some(
@@ -94,7 +99,48 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                         );
                     })}
 
-                    <div className="pt-8 pb-4">
+                    <div className="pt-6 pb-4">
+                        {/* Minimum Order Value Progress / Status Banner */}
+                        <div className={`rounded-2xl p-4 border transition-all ${
+                            isBelowMinOrder 
+                                ? 'bg-orange-50/70 border-orange-200/80 shadow-xs' 
+                                : 'bg-emerald-50/70 border-emerald-200/80'
+                        }`}>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[13px] font-bold text-gray-800">
+                                    {isBelowMinOrder ? (
+                                        <>
+                                            Minimum order value: <span className="text-gray-900 font-extrabold">₹{MINIMUM_ORDER_VALUE}</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-emerald-700 font-extrabold flex items-center gap-1.5">
+                                            <Check size={16} className="text-emerald-600" strokeWidth={3} />
+                                            Minimum order requirement met
+                                        </span>
+                                    )}
+                                </span>
+                                <span className={`text-[12px] font-extrabold ${isBelowMinOrder ? 'text-orange-700' : 'text-emerald-700'}`}>
+                                    ₹{cartTotal} / ₹{MINIMUM_ORDER_VALUE}
+                                </span>
+                            </div>
+
+                            {/* Progress Track & Bar */}
+                            <div className="w-full bg-gray-200/80 rounded-full h-2 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                        isBelowMinOrder ? 'bg-gradient-to-r from-orange-400 to-[#f97316]' : 'bg-emerald-500'
+                                    }`}
+                                    style={{ width: `${progressPercentage}%` }}
+                                />
+                            </div>
+
+                            <p className={`text-[12px] font-bold mt-2 ${isBelowMinOrder ? 'text-orange-700' : 'text-emerald-700'}`}>
+                                {isBelowMinOrder 
+                                    ? `Add ₹${remainingAmount} more to place your order.`
+                                    : 'You are eligible to place this order.'}
+                            </p>
+                        </div>
+
                         {/* Apply Coupon */}
                         <div className="flex items-center justify-between py-4 cursor-pointer">
                             <span className="text-[16px] font-bold text-gray-700">Apply Coupon</span>
@@ -102,7 +148,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                         </div>
 
                         {/* Total */}
-                        <div className="flex items-center justify-between py-6 mt-2">
+                        <div className="flex items-center justify-between py-4 border-t border-gray-100">
                             <span className="text-[22px] font-black text-gray-900">Total</span>
                             <span className="text-[22px] font-black text-gray-900">₹{cartTotal}</span>
                         </div>
@@ -149,6 +195,18 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                             </button>
                             <span className="text-[11px] text-amber-700 font-bold text-center">
                                 Maximum 10 units allowed per product.
+                            </span>
+                        </div>
+                    ) : isBelowMinOrder ? (
+                        <div className="flex flex-col gap-1.5 items-center">
+                            <button
+                                disabled
+                                className="flex w-full items-center justify-center bg-slate-200 text-slate-500 text-[16px] font-bold py-4 rounded-xl cursor-not-allowed border border-slate-300"
+                            >
+                                Add ₹{remainingAmount} more to checkout
+                            </button>
+                            <span className="text-[11px] text-amber-700 font-bold text-center">
+                                Minimum order value is ₹{MINIMUM_ORDER_VALUE}. Add ₹{remainingAmount} more to place your order.
                             </span>
                         </div>
                     ) : (

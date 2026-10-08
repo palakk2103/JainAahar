@@ -209,7 +209,7 @@ export const placeOrder = async (req, res) => {
       correlationId: req.correlationId,
       error,
     });
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message, error.data || {});
   }
 };
 /* ===============================

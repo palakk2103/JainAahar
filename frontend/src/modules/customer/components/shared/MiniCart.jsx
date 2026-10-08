@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { MINIMUM_ORDER_VALUE } from '@/core/constants/order';
 
 const MiniCart = () => {
     const location = useLocation();
@@ -65,9 +66,17 @@ const MiniCart = () => {
                             <div className="flex flex-col text-left">
                                 <span className="text-[11px] font-black uppercase tracking-wider text-orange-100">
                                     {cartCount} {cartCount === 1 ? 'Item' : 'Items'}
+                                    {cartTotal < MINIMUM_ORDER_VALUE && (
+                                        <span className="ml-1 opacity-90 font-bold">• Min ₹{MINIMUM_ORDER_VALUE}</span>
+                                    )}
                                 </span>
                                 <span className="text-sm font-black tracking-tight leading-tight">
                                     ₹{cartTotal.toLocaleString('en-IN')}
+                                    {cartTotal < MINIMUM_ORDER_VALUE && (
+                                        <span className="ml-1 text-[11px] font-semibold text-orange-100">
+                                            (+₹{MINIMUM_ORDER_VALUE - cartTotal})
+                                        </span>
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -105,9 +114,17 @@ const MiniCart = () => {
                         <div className="flex flex-col text-left">
                             <span className="text-xs font-bold text-orange-100 uppercase tracking-wider">
                                 {cartCount} {cartCount === 1 ? 'Item' : 'Items'} in Cart
+                                {cartTotal < MINIMUM_ORDER_VALUE && (
+                                    <span className="ml-1.5 font-bold">• Min ₹{MINIMUM_ORDER_VALUE}</span>
+                                )}
                             </span>
                             <span className="text-base font-black tracking-tight">
                                 ₹{cartTotal.toLocaleString('en-IN')}
+                                {cartTotal < MINIMUM_ORDER_VALUE && (
+                                    <span className="ml-2 text-xs font-semibold text-orange-100">
+                                        (Add ₹{MINIMUM_ORDER_VALUE - cartTotal} more)
+                                    </span>
+                                )}
                             </span>
                         </div>
 

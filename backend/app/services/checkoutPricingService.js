@@ -5,6 +5,7 @@ import { distanceMeters } from "../utils/geoUtils.js";
 import {
   DELIVERY_PRICING_MODE,
   HANDLING_FEE_STRATEGY,
+  MINIMUM_ORDER_VALUE,
   isWalletRedemptionReducesPayableEnabled,
   isServerSideCouponEngineEnabled,
 } from "../constants/finance.js";
@@ -90,6 +91,9 @@ function buildAggregateBreakdown(sellerBreakdowns = [], shippingResult = null) {
   const aggregate = {
     currency: sellerBreakdowns[0]?.currency || "INR",
     productSubtotal: sumField(sellerBreakdowns, "productSubtotal"),
+    minimumOrderValue: MINIMUM_ORDER_VALUE,
+    minOrderRequirementMet: sumField(sellerBreakdowns, "productSubtotal") >= MINIMUM_ORDER_VALUE,
+    remainingForMinOrder: Math.max(0, round2(MINIMUM_ORDER_VALUE - sumField(sellerBreakdowns, "productSubtotal"))),
     deliveryFeeCharged: sumField(sellerBreakdowns, "deliveryFeeCharged"),
     handlingFeeCharged: sumField(sellerBreakdowns, "handlingFeeCharged"),
     tipTotal: sumField(sellerBreakdowns, "tipTotal"),

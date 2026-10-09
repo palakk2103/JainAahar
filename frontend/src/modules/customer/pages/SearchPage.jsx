@@ -44,11 +44,11 @@ const SearchPage = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Debounce Logic
+    // Debounce Logic - 200ms for instant, snappy search as you type
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedQuery(query);
-        }, 400);
+        }, 200);
         return () => clearTimeout(timer);
     }, [query]);
 
@@ -280,18 +280,40 @@ const SearchPage = () => {
                 </div>
             </div>
 
-            <div className="p-5 space-y-10 pb-24">
+            <div className="p-5 space-y-6 pb-24">
                 {/* Search Results List */}
                 {query ? (
                     <section>
+                        {/* Quick Matching Suggestions / Pill tags as you type */}
+                        {results.length > 0 && (
+                            <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                                <span className="text-[11px] font-bold text-slate-400 shrink-0">Matching:</span>
+                                {results.slice(0, 6).map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => setQuery(item.name)}
+                                        className="px-3 py-1 bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 text-xs font-semibold rounded-full whitespace-nowrap transition-colors cursor-pointer border border-slate-200/60"
+                                    >
+                                        {item.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-black text-slate-800 tracking-tight">
                                 Search Results
                             </h2>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{results.length} found</span>
+                            <div className="flex items-center gap-2">
+                                {(isLoading || debouncedQuery !== query) && (
+                                    <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                                )}
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{results.length} found</span>
+                            </div>
                         </div>
 
-                        {isLoading || debouncedQuery !== query ? (
+                        {isLoading && results.length === 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 md:gap-x-4 gap-y-6 md:gap-y-10">
                                 {[...Array(8)].map((_, i) => (
                                     <div key={i} className="w-full h-64 bg-slate-50/50 border border-slate-100 rounded-3xl animate-pulse flex flex-col p-3">
@@ -302,7 +324,10 @@ const SearchPage = () => {
                                 ))}
                             </div>
                         ) : results.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 md:gap-x-4 gap-y-6 md:gap-y-10">
+                            <div className={cn(
+                                "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 md:gap-x-4 gap-y-6 md:gap-y-10 transition-opacity duration-200",
+                                (isLoading || debouncedQuery !== query) && "opacity-60"
+                            )}>
                                 {results.map((product) => (
                                     <div key={product.id} onClick={() => saveSearch(query)} className="flex justify-center">
                                         <ProductCard product={product} compact={isMobile} />

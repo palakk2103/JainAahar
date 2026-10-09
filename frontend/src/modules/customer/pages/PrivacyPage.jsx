@@ -97,12 +97,12 @@ const PrivacyPage = () => {
                             Account Deletion & Data Rights
                         </h3>
                         <p className="text-slate-600 text-sm leading-relaxed mb-3">
-                            You have full rights over your data. You can delete your account and associated personal data at any time through your Profile page using the <strong>Delete Account</strong> option or by contacting our support team at <a href="mailto:aaharjain@gmail.com" className="text-primary font-bold hover:underline">aaharjain@gmail.com</a>.
+                            You have full rights over your data. You can request the deletion of your account and associated personal data at any time by contacting our support team at <a href="mailto:aaharjain@gmail.com" className="text-primary font-bold hover:underline">aaharjain@gmail.com</a>.
                         </p>
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex items-start gap-3">
                             <CheckCircle2 size={20} className="text-primary shrink-0 mt-0.5" />
                             <div className="text-xs text-slate-600 leading-relaxed">
-                                <span className="font-bold text-slate-800">Instant Self-Service Account Deletion:</span> Navigate to <em>Profile &gt; Delete Account</em> to permanently remove your user profile, active carts, and saved lists.
+                                <span className="font-bold text-slate-800">Data Deletion Assistance:</span> Contact our support team to request permanent deletion of your profile, active cart, and personal records.
                             </div>
                         </div>
                     </div>

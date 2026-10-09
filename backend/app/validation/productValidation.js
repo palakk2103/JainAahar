@@ -30,6 +30,7 @@ export const createProductSchema = Joi.object({
     )
     .optional(),
   brand: trimmedString.max(100).optional(),
+  shelfLife: trimmedString.max(100).allow("").optional(),
   tags: Joi.array().items(trimmedString.max(50)).max(20).optional(),
   highlights: Joi.array()
     .items(

@@ -10,7 +10,11 @@ import {
   isServerSideCouponEngineEnabled,
 } from "../constants/finance.js";
 import { getOrCreateFinanceSettings } from "./finance/financeSettingsService.js";
-import { calculateCheckoutShipping } from "./shippingRateService.js";
+import {
+  calculateCheckoutShipping,
+  isLocalDelivery,
+  FLAT_PAN_INDIA_SHIPPING_FEE,
+} from "./shippingRateService.js";
 import {
   calculateHandlingFee,
   generateOrderPaymentBreakdown,
@@ -452,18 +456,41 @@ export async function buildCheckoutPricingSnapshot({
     address?.pincode ||
     address?.postalCode ||
     (typeof address?.city === "string" ? address.city.match(/\b\d{6}\b/)?.[0] : null) ||
+    (typeof address?.address === "string" ? address.address.match(/\b\d{6}\b/)?.[0] : null) ||
+    (typeof address?.fullAddress === "string" ? address.fullAddress.match(/\b\d{6}\b/)?.[0] : null) ||
+    (typeof address?.rawAddress === "string" ? address.rawAddress.match(/\b\d{6}\b/)?.[0] : null) ||
     "";
   const rawCity = address?.city || "";
 
   let shippingResult = null;
   if (isShiprocketDynamic && rawPincode) {
-    shippingResult = await calculateCheckoutShipping({
-      items: hydratedItems,
-      customerPincode: rawPincode,
-      customerCity: rawCity,
-      paymentMode,
-      session,
-    });
+    try {
+      shippingResult = await calculateCheckoutShipping({
+        items: hydratedItems,
+        customerPincode: rawPincode,
+        customerCity: rawCity,
+        paymentMode,
+        session,
+      });
+    } catch (shippingErr) {
+      const localCheck = isLocalDelivery(null, rawPincode, rawCity);
+      const panIndiaFee = localCheck.isLocal ? 0 : FLAT_PAN_INDIA_SHIPPING_FEE;
+      shippingResult = {
+        shippingCharge: panIndiaFee,
+        shippingRateSource: localCheck.isLocal ? "local_free" : "shiprocket",
+        isLocalDelivery: localCheck.isLocal,
+        fulfillmentWarehouse: null,
+        courierInfo: {
+          name: localCheck.isLocal ? "Local Delivery" : "Standard Delivery (Pan India)",
+          codCharges: 0,
+          etdHours: 72,
+          baseRate: panIndiaFee,
+          bufferApplied: 0,
+        },
+        totalWeight: 1,
+        calculatedAt: new Date(),
+      };
+    }
   }
 
   const itemsBySeller = groupHydratedItemsBySeller(hydratedItems);

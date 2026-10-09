@@ -100,6 +100,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
         tags: '',
         weight: '',
         brand: '',
+        shelfLife: '',
         mainImage: null,
         galleryImages: [],
         mainImageFile: null,
@@ -238,6 +239,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
             data.append('isFeatured', String(Boolean(formData.isFeatured)));
             data.append('brand', formData.brand || '');
             data.append('weight', formData.weight || '');
+            data.append('shelfLife', formData.shelfLife || '');
             data.append('tags', formData.tags || '');
             data.append('variants', JSON.stringify(formData.variants || []));
             data.append('highlights', JSON.stringify(formData.highlights || []));
@@ -414,6 +416,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                 tags: Array.isArray(item.tags) ? item.tags.join(', ') : item.tags || '',
                 weight: item.weight || '',
                 brand: item.brand || '',
+                shelfLife: item.shelfLife || '',
                 mainImage: item.mainImage || null,
                 galleryImages: item.galleryImages || item.images || [],
                 mainImageFile: null,
@@ -441,7 +444,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                 name: '', slug: '', sku: '', description: '', price: '',
                 salePrice: '', stock: '', lowStockAlert: 5, unit: 'packet',
                 header: '', categoryId: '', subcategoryId: '', status: 'active',
-                isFeatured: false, tags: '', weight: '', brand: '',
+                isFeatured: false, tags: '', weight: '', brand: '', shelfLife: '',
                 mainImage: null, galleryImages: [],
                 mainImageFile: null, galleryFiles: [],
                 highlights: [
@@ -1037,6 +1040,19 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                                                         className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2"
                                                         placeholder="e.g. 5 kg, 500 gm, 1 L"
                                                     />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-1.5 flex flex-col">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Shelf Life (Optional)</label>
+                                                    <input
+                                                        value={formData.shelfLife}
+                                                        onChange={(e) => setFormData({ ...formData, shelfLife: e.target.value })}
+                                                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2"
+                                                        placeholder="e.g. 3 Days, 6 Months, 1 Year"
+                                                    />
+                                                    <p className="text-[10px] text-slate-400 ml-1">Leave empty if you don't want to show shelf life on product details.</p>
                                                 </div>
                                             </div>
                                         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, Heart, User, Menu, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWishlist } from '../../context/WishlistContext';
@@ -9,6 +9,7 @@ import { useSettings } from '@core/context/SettingsContext';
 import LocationDrawer from '../shared/LocationDrawer';
 
 const Header = () => {
+    const navigate = useNavigate();
     const { settings } = useSettings();
     const { count: wishlistCount } = useWishlist();
     const { cartCount } = useCart();
@@ -21,7 +22,8 @@ const Header = () => {
         currentPath.includes('about') ||
         currentPath.includes('profile') ||
         currentPath.startsWith('/checkout') ||
-        currentPath.startsWith('/search');
+        currentPath.startsWith('/search') ||
+        currentPath.startsWith('/notifications');
 
     if (isHiddenPage) {
         return null;
@@ -154,12 +156,13 @@ const Header = () => {
                     {/* Search Bar - Hidden on checkout page */}
                     {!isCheckoutPage && (
                         <div className="flex-1 flex items-center max-w-sm ml-4 md:ml-8 mr-4 md:mr-8">
-                            <div className="relative w-full">
+                            <div className="relative w-full cursor-pointer" onClick={() => navigate('/search')}>
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <input
                                     type="search"
                                     placeholder={searchPlaceholder}
-                                    className="w-full rounded-full border-none bg-slate-100/50 md:bg-white md:border md:border-slate-200 pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary transition-all outline-none"
+                                    readOnly
+                                    className="w-full rounded-full border-none bg-slate-100/50 md:bg-white md:border md:border-slate-200 pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary transition-all outline-none cursor-pointer"
                                 />
                             </div>
                         </div>

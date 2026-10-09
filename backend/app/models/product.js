@@ -50,6 +50,11 @@ const productSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        shelfLife: {
+            type: String,
+            trim: true,
+            default: "",
+        },
         tags: [{
             type: String,
             trim: true,

@@ -4,14 +4,16 @@ import Review from "../models/review.js";
 import { handleResponse } from "../utils/helper.js";
 import https from "https";
 
-// Helper function to translate input search terms to English dynamically
+// Helper function to translate input search terms to English dynamically with timeout
 function translateToEnglish(text) {
   return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(text), 1500); // 1.5s max timeout
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
     https.get(url, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
+        clearTimeout(timer);
         try {
           const parsed = JSON.parse(data);
           if (parsed && parsed[0] && parsed[0][0] && parsed[0][0][0]) {
@@ -24,60 +26,280 @@ function translateToEnglish(text) {
         resolve(text);
       });
     }).on('error', (err) => {
-      logger.error("Translation helper error in products search: " + err.message);
+      clearTimeout(timer);
       resolve(text);
     });
   });
 }
 
-const SYNONYMS = {
-  "lentil": ["dal", "pulse", "pulses"],
-  "lentils": ["dal", "pulse", "pulses"],
-  "pulse": ["dal", "lentil", "lentils"],
-  "pulses": ["dal", "lentil", "lentils"],
-  "dal": ["lentil", "lentils", "pulse", "pulses"],
-  "oil": ["tel", "oil"],
-  "tel": ["oil", "tel"],
-  "flour": ["atta", "flour"],
-  "atta": ["flour", "atta", "wheat flour"],
-  "potato": ["aloo", "potato", "potatoes"],
-  "potatoes": ["aloo", "potato", "potatoes"],
-  "aloo": ["potato", "potatoes", "aloo"],
-  "onion": ["pyaz", "onion", "onions"],
-  "onions": ["pyaz", "onion", "onions"],
-  "pyaz": ["onion", "onions", "pyaz"],
-  "tomato": ["tamatar", "tomato", "tomatoes"],
-  "tomatoes": ["tamatar", "tomato", "tomatoes"],
-  "tamatar": ["tomato", "tomatoes", "tamatar"],
-  "ginger": ["adrak", "ginger"],
-  "adrak": ["ginger", "adrak"],
+// Comprehensive Grocery & Spices Synonym Dictionary (English <-> Hindi <-> Hinglish)
+const GROCERY_SYNONYMS = {
+  // Spices & Condiments
+  "haldi": ["turmeric", "haldi", "haridra"],
+  "turmeric": ["haldi", "turmeric", "haridra"],
+  "jeera": ["cumin", "jeera", "zeera", "jira"],
+  "cumin": ["jeera", "cumin", "zeera", "jira"],
+  "zeera": ["jeera", "cumin", "zeera", "jira"],
+  "jira": ["jeera", "cumin", "zeera", "jira"],
+  "mirch": ["chilli", "chili", "mirch", "mirchi", "pepper"],
+  "mirchi": ["chilli", "chili", "mirch", "mirchi", "pepper"],
+  "chilli": ["mirch", "mirchi", "chilli", "chili", "pepper"],
+  "chili": ["mirch", "mirchi", "chilli", "chili", "pepper"],
+  "pepper": ["mirch", "mirchi", "kali mirch", "pepper"],
+  "black pepper": ["kali mirch", "black pepper", "golki"],
+  "kali mirch": ["black pepper", "kali mirch", "pepper", "golki"],
+  "lal mirch": ["red chilli", "red chili", "lal mirch", "chilli powder"],
+  "red chilli": ["lal mirch", "red chilli", "red chili", "mirch"],
+  "red chili": ["lal mirch", "red chilli", "red chili", "mirch"],
+  "dhaniya": ["coriander", "dhaniya", "dhania", "dhana"],
+  "dhania": ["coriander", "dhaniya", "dhania", "dhana"],
+  "dhana": ["coriander", "dhaniya", "dhania", "dhana"],
+  "coriander": ["dhaniya", "dhania", "dhana", "coriander"],
+  "methi": ["fenugreek", "methi", "maithi", "kasuri methi", "kasuri maithi"],
+  "maithi": ["fenugreek", "methi", "maithi", "kasuri methi", "kasuri maithi"],
+  "fenugreek": ["methi", "maithi", "fenugreek", "kasuri methi"],
+  "kasuri methi": ["kasuri maithi", "kasuri methi", "maithi", "methi"],
+  "kasuri maithi": ["kasuri methi", "kasuri maithi", "maithi", "methi"],
+  "namak": ["salt", "namak", "sendha", "saida", "rock salt"],
+  "salt": ["namak", "salt", "sendha namak", "saida namak", "rock salt"],
+  "sendha": ["sendha namak", "saida namak", "rock salt", "namak"],
+  "saida": ["sendha namak", "saida namak", "rock salt", "namak"],
+  "rock salt": ["sendha namak", "saida namak", "rock salt", "namak"],
+  "sarso": ["mustard", "sarso", "sarson", "rai", "rye"],
+  "sarson": ["mustard", "sarso", "sarson", "rai", "rye"],
+  "rai": ["mustard", "sarso", "sarson", "rai", "rye"],
+  "mustard": ["sarso", "sarson", "rai", "mustard"],
+  "ajwain": ["carom", "ajwain", "ajowan", "carom seeds"],
+  "carom": ["ajwain", "carom", "carom seeds"],
+  "elaichi": ["cardamom", "elaichi", "ilaichi", "elachi", "donda", "badi elaichi"],
+  "ilaichi": ["cardamom", "elaichi", "ilaichi", "elachi", "donda", "badi elaichi"],
+  "elachi": ["cardamom", "elaichi", "ilaichi", "elachi", "donda", "badi elaichi"],
+  "cardamom": ["elaichi", "ilaichi", "cardamom", "donda", "badi elaichi"],
+  "badi elaichi": ["donda", "badi elaichi", "black cardamom", "cardamom"],
+  "donda": ["donda", "badi elaichi", "black cardamom", "cardamom"],
+  "dalchini": ["cinnamon", "dalchini", "dal chini"],
+  "dal chini": ["cinnamon", "dalchini", "dal chini"],
+  "cinnamon": ["dalchini", "dal chini", "cinnamon"],
+  "laung": ["clove", "laung", "long", "lavang", "cloves"],
+  "long": ["clove", "laung", "long", "lavang", "cloves"],
+  "clove": ["laung", "long", "clove", "lavang", "cloves"],
+  "cloves": ["laung", "long", "clove", "lavang", "cloves"],
+  "sonth": ["dry ginger", "sonth", "saunth", "ginger powder"],
+  "saunth": ["dry ginger", "sonth", "saunth", "ginger powder"],
+  "dry ginger": ["sonth", "saunth", "dry ginger"],
+  "ginger": ["adrak", "sonth", "ginger"],
+  "adrak": ["ginger", "adrak", "sonth"],
   "garlic": ["lahsun", "garlic"],
   "lahsun": ["garlic", "lahsun"],
-  "rice": ["chawal", "rice"],
+  "onion": ["pyaz", "onion", "onions"],
+  "pyaz": ["onion", "pyaz", "onions"],
+  "potato": ["aloo", "potato", "potatoes"],
+  "aloo": ["potato", "aloo", "potatoes"],
+  "tomato": ["tamatar", "tomato", "tomatoes"],
+  "tamatar": ["tomato", "tamatar", "tomatoes"],
+  "tej patta": ["bay leaf", "tej patta", "bay leaves"],
+  "bay leaf": ["tej patta", "bay leaf", "bay leaves"],
+  "saunf": ["fennel", "saunf", "fennel seeds", "variyali"],
+  "fennel": ["saunf", "fennel", "fennel seeds"],
+  "hing": ["asafoetida", "hing", "heeng"],
+  "heeng": ["asafoetida", "hing", "heeng"],
+  "asafoetida": ["hing", "heeng", "asafoetida"],
+  "masala": ["masala", "spice", "spices"],
+  "garam masala": ["garam masala", "masala"],
+  "jiraman": ["jiraman", "jeeravan", "masala"],
+
+  // Dry Fruits & Nuts
+  "badam": ["almond", "badam", "badaam", "almonds"],
+  "badaam": ["almond", "badam", "badaam", "almonds"],
+  "almond": ["badam", "badaam", "almond", "almonds"],
+  "almonds": ["badam", "badaam", "almond", "almonds"],
+  "kaju": ["cashew", "kaju", "cashews", "cashew nuts"],
+  "cashew": ["kaju", "cashew", "cashews"],
+  "cashews": ["kaju", "cashew", "cashews"],
+  "kismis": ["raisin", "raisins", "kismis", "kishmish"],
+  "kishmish": ["raisin", "raisins", "kismis", "kishmish"],
+  "raisin": ["kismis", "kishmish", "raisin", "raisins"],
+  "raisins": ["kismis", "kishmish", "raisin", "raisins"],
+  "akhrot": ["walnut", "walnuts", "akhrot", "akroot"],
+  "walnut": ["akhrot", "walnut", "walnuts"],
+  "walnuts": ["akhrot", "walnut", "walnuts"],
+  "pista": ["pistachio", "pistachios", "pista"],
+  "pistachio": ["pista", "pistachio", "pistachios"],
+  "pistachios": ["pista", "pistachio", "pistachios"],
+  "khajur": ["dates", "date", "khajur", "khajoor", "chuhara"],
+  "khajoor": ["dates", "date", "khajur", "khajoor", "chuhara"],
+  "dates": ["khajur", "khajoor", "dates", "chuhara", "dry dates"],
+  "chuhara": ["dry dates", "dates", "chuhara", "khajur"],
+  "dry dates": ["chuhara", "dry dates", "khajur", "dates"],
+  "mungfali": ["peanut", "peanuts", "groundnut", "mungfali", "moongfali", "singdana"],
+  "moongfali": ["peanut", "peanuts", "groundnut", "mungfali", "moongfali", "singdana"],
+  "peanut": ["mungfali", "moongfali", "peanut", "peanuts", "groundnut"],
+  "peanuts": ["mungfali", "moongfali", "peanut", "peanuts", "groundnut"],
+  "groundnut": ["mungfali", "moongfali", "peanut", "peanuts", "groundnut"],
+  "chironji": ["charoli", "chironji"],
+  "charoli": ["chironji", "charoli"],
+  "makhana": ["fox nuts", "lotus seeds", "makhana", "phool makhana"],
+
+  // Grains & Pulses / Dals
+  "dal": ["dal", "dhal", "daal", "pulse", "pulses", "lentil", "lentils"],
+  "dals": ["dal", "dhal", "daal", "pulse", "pulses", "lentil", "lentils"],
+  "pulses": ["dal", "pulse", "pulses", "lentil", "lentils"],
+  "lentil": ["dal", "lentil", "lentils", "pulse"],
+  "lentils": ["dal", "lentil", "lentils", "pulse"],
+  "toor": ["toor", "tuar", "arhar", "pigeon pea", "toor dal"],
+  "tuar": ["toor", "tuar", "arhar", "pigeon pea", "tuar dal"],
+  "arhar": ["toor", "tuar", "arhar", "toor dal", "tuar dal"],
+  "moong": ["moong", "mung", "green gram", "moong dal"],
+  "mung": ["moong", "mung", "green gram", "moong dal"],
+  "masoor": ["masoor", "masur", "red lentil", "malka", "masoor dal"],
+  "masur": ["masoor", "masur", "red lentil", "malka", "masoor dal"],
+  "malka": ["masoor", "malka", "malka masoor"],
+  "urad": ["urad", "udad", "black gram", "urad dal"],
+  "udad": ["urad", "udad", "black gram", "urad dal"],
+  "chana": ["chana", "channa", "gram", "bengal gram", "chana dal", "kala chana"],
+  "channa": ["chana", "channa", "gram", "chana dal"],
+  "chole": ["chole", "chana", "kabuli chana", "chickpeas", "chickpea"],
+  "kabuli": ["kabuli chana", "chole", "chickpeas", "chickpea"],
+  "chickpea": ["chole", "kabuli chana", "chana", "chickpea", "chickpeas"],
+  "chickpeas": ["chole", "kabuli chana", "chana", "chickpea", "chickpeas"],
+  "rajma": ["rajma", "rajmah", "kidney beans", "red kidney beans"],
+  "kidney beans": ["rajma", "kidney beans"],
+  "lobia": ["lobia", "ramasi", "black eyed peas", "cowpea"],
+  "ramasi": ["lobia", "ramasi", "cowpea"],
+  "rice": ["rice", "chawal", "tandul"],
   "chawal": ["rice", "chawal"],
+  "corn": ["corn", "makka", "makkai", "maize"],
+  "makka": ["corn", "makka", "makkai", "maize"],
+  "makkai": ["corn", "makka", "makkai", "maize"],
+  "maize": ["corn", "makka", "maize"],
+  "jowar": ["jowar", "joo", "sorghum", "barley"],
+  "joo": ["jowar", "joo", "barley"],
+  "bajra": ["bajra", "pearl millet", "millet"],
+  "millet": ["bajra", "jowar", "millet"],
+  "wheat": ["gehun", "wheat", "atta"],
+  "atta": ["atta", "flour", "wheat flour", "gehun"],
+  "flour": ["atta", "flour", "maida", "besan"],
+  "besan": ["besan", "gram flour", "chana flour"],
+  "suji": ["suji", "sooji", "rava", "semolina"],
+  "sooji": ["suji", "sooji", "rava", "semolina"],
+  "rava": ["suji", "sooji", "rava", "semolina"],
+  "poha": ["poha", "pohe", "flattened rice", "chivda"],
+  "sabudana": ["sabudana", "sago", "tapioca pearls"],
+
+  // Sweeteners & Dairy
+  "sugar": ["sugar", "cheeni", "shakkar", "khand", "bura"],
+  "cheeni": ["sugar", "cheeni", "shakkar"],
+  "shakkar": ["sugar", "shakkar", "cheeni", "jaggery powder"],
+  "gud": ["jaggery", "gud", "gur"],
+  "gur": ["jaggery", "gud", "gur"],
+  "jaggery": ["gud", "gur", "jaggery"],
+  "ghee": ["ghee", "desi ghee", "clarified butter"],
+  "oil": ["oil", "tel", "cooking oil"],
+  "tel": ["oil", "tel"],
   "milk": ["doodh", "milk"],
   "doodh": ["milk", "doodh"],
+  "paneer": ["paneer", "cottage cheese"],
   "cottage cheese": ["paneer", "cottage cheese"],
-  "paneer": ["cottage cheese", "paneer"],
-  "blessings": ["aashirvaad", "aashirwad", "blessings"],
-  "blessing": ["aashirvaad", "aashirwad", "blessing"],
-  "bless": ["aashirvaad", "aashirwad", "bless"],
-  "aashirvaad": ["blessings", "blessing", "aashirwad", "aashirvaad"],
-  "aashirwad": ["blessings", "blessing", "aashirvaad", "aashirwad"]
+
+  // Pooja Items
+  "poojan": ["poojan", "puja", "pooja", "mandir"],
+  "pooja": ["poojan", "puja", "pooja", "mandir"],
+  "puja": ["poojan", "puja", "pooja", "mandir"],
+  "dhoop": ["dhoop", "incense", "agarbatti"],
+  "tulsi": ["tulsi", "holy basil", "basil"],
+  "neem": ["neem", "margosa"],
+
+  // Mango / Aam
+  "aam": ["aam", "mango", "amchur", "aamchur"],
+  "mango": ["aam", "mango", "amchur", "aamchur"],
+  "amchur": ["amchur", "aamchur", "dry mango powder", "mango powder"],
+  "aamchur": ["amchur", "aamchur", "dry mango powder", "mango powder"]
 };
+
+// Flexible regex generator that matches Hinglish vowels & common phonetic variations flexibly
+function createFlexiblePattern(str) {
+  let res = '';
+  const s = str.toLowerCase();
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === 'a') {
+      if (s[i + 1] === 'a') i++;
+      res += 'a+';
+    } else if (c === 'i') {
+      if (s[i + 1] === 'i') i++;
+      res += '(?:i+|ee)';
+    } else if (c === 'e') {
+      if (s[i + 1] === 'e') i++;
+      res += '(?:e+|ee|ai)';
+    } else if (c === 'u') {
+      if (s[i + 1] === 'u') i++;
+      res += '(?:u+|oo)';
+    } else if (c === 'o') {
+      if (s[i + 1] === 'o') i++;
+      res += '(?:o+|au)';
+    } else if (c === 's' && s[i + 1] === 'h') {
+      i++;
+      res += '(?:sh|s)';
+    } else if (c === 's') {
+      res += '(?:s|sh)';
+    } else if (c === 'y' && i > 0 && s[i - 1] === 'i') {
+      res += 'y?';
+    } else if (/[.*+?^${}()|[\]\\]/.test(c)) {
+      res += '\\' + c;
+    } else {
+      res += c;
+    }
+  }
+  return res;
+}
 
 function buildSearchRegexWithSynonyms(word) {
   const normalized = word.toLowerCase().trim();
-  const list = [word];
-  if (SYNONYMS[normalized]) {
-    list.push(...SYNONYMS[normalized]);
+  const candidateTerms = new Set([normalized]);
+
+  if (GROCERY_SYNONYMS[normalized]) {
+    GROCERY_SYNONYMS[normalized].forEach(item => candidateTerms.add(item.toLowerCase()));
   }
-  const escapedList = list.map(item => item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const pattern = escapedList.length > 1 ? `(${escapedList.join("|")})` : escapedList[0];
+
+  const patterns = [];
+  for (const cand of candidateTerms) {
+    patterns.push(cand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    if (cand.length >= 2) {
+      patterns.push(createFlexiblePattern(cand));
+    }
+  }
+
+  const uniquePatterns = [...new Set(patterns)];
+  const pattern = uniquePatterns.length > 1 ? `(${uniquePatterns.join("|")})` : uniquePatterns[0];
   return {
     $regex: pattern,
     $options: "i"
   };
+}
+
+function computeRelevanceScore(product, term) {
+  let score = 0;
+  const name = String(product?.name || "").toLowerCase();
+  const desc = String(product?.description || "").toLowerCase();
+  const brand = String(product?.brand || "").toLowerCase();
+  const tags = Array.isArray(product?.tags) ? product.tags.map(t => String(t).toLowerCase()) : [];
+
+  // Exact name match
+  if (name === term) score += 100;
+  // Name starts with term
+  else if (name.startsWith(term)) score += 60;
+  // Name contains full term
+  else if (name.includes(term)) score += 40;
+
+  const words = term.split(/\s+/).filter(Boolean);
+  for (const w of words) {
+    if (name.includes(w)) score += 20;
+    if (tags.some(t => t.includes(w))) score += 15;
+    if (brand.includes(w)) score += 10;
+    if (desc.includes(w)) score += 5;
+  }
+
+  return score;
 }
 
 import { slugify } from "../utils/slugify.js";
@@ -310,6 +532,9 @@ function sanitizeProductPayload(productData) {
   if (productData.lowStockAlert !== undefined && productData.lowStockAlert !== "") {
     productData.lowStockAlert = Number(productData.lowStockAlert) || 5;
   }
+  if (productData.shelfLife !== undefined) {
+    productData.shelfLife = String(productData.shelfLife || "").trim();
+  }
 
   // Sanitize variants
   if (Array.isArray(productData.variants)) {
@@ -421,46 +646,53 @@ export const getProducts = async (req, res) => {
         if (isProductTextSearchEnabled() && term.length >= 3) {
           query.$text = { $search: term };
         } else {
-          const englishTerm = await translateToEnglish(term);
+          const cleanTerm = term.toLowerCase().trim();
           const originalWords = term.split(/\s+/).filter(Boolean);
-          const englishWords = englishTerm.split(/\s+/).filter(Boolean);
-          const orClauses = [];
 
-          if (originalWords.length > 0) {
+          const wordClauses = originalWords.map((word) => {
+            const regex = buildSearchRegexWithSynonyms(word);
+            return {
+              $or: [
+                { name: regex },
+                { tags: regex },
+                { description: regex },
+                { brand: regex },
+                { "variants.name": regex },
+                { weight: regex }
+              ]
+            };
+          });
+
+          const fullTermRegex = buildSearchRegexWithSynonyms(cleanTerm);
+          const fullTermClause = {
+            $or: [
+              { name: fullTermRegex },
+              { tags: fullTermRegex },
+              { description: fullTermRegex },
+              { brand: fullTermRegex },
+              { "variants.name": fullTermRegex }
+            ]
+          };
+
+          const orClauses = [fullTermClause];
+          if (wordClauses.length > 1) {
+            orClauses.push({ $and: wordClauses });
+          }
+
+          // English translation fallback if different
+          const englishTerm = await translateToEnglish(term);
+          if (englishTerm && englishTerm.toLowerCase() !== cleanTerm) {
+            const engRegex = buildSearchRegexWithSynonyms(englishTerm);
             orClauses.push({
-              $and: originalWords.map((word) => {
-                const regex = buildSearchRegexWithSynonyms(word);
-                return {
-                  $or: [
-                    { name: regex },
-                    { tags: regex },
-                    { description: regex }
-                  ]
-                };
-              })
+              $or: [
+                { name: engRegex },
+                { tags: engRegex },
+                { description: engRegex }
+              ]
             });
           }
 
-          if (englishWords.length > 0 && englishTerm.toLowerCase() !== term.toLowerCase()) {
-            orClauses.push({
-              $and: englishWords.map((word) => {
-                const regex = buildSearchRegexWithSynonyms(word);
-                return {
-                  $or: [
-                    { name: regex },
-                    { tags: regex },
-                    { description: regex }
-                  ]
-                };
-              })
-            });
-          }
-
-          if (orClauses.length > 1) {
-            query.$or = orClauses;
-          } else if (orClauses.length === 1) {
-            Object.assign(query, orClauses[0]);
-          }
+          query.$or = orClauses;
         }
       }
     }
@@ -538,7 +770,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock brand weight shelfLife mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -608,6 +840,15 @@ export const getProducts = async (req, res) => {
             : null,
         };
       });
+
+      if (search && (!sort || String(sort).toLowerCase() === "newest")) {
+        const cleanSearch = String(search).trim().toLowerCase();
+        products.sort((a, b) => {
+          const scoreA = computeRelevanceScore(a, cleanSearch);
+          const scoreB = computeRelevanceScore(b, cleanSearch);
+          return scoreB - scoreA;
+        });
+      }
 
       return {
         items: normalizeProductListModeration(products),
@@ -683,7 +924,7 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
         )
         .populate("headerId", "name")
         .populate("categoryId", "name")
@@ -1287,7 +1528,7 @@ export const getProductById = async (req, res) => {
       async () =>
         Product.findById(id)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")
@@ -1435,7 +1676,7 @@ export const getModerationProducts = async (req, res) => {
       await Promise.all([
         Product.find(moderatedQuery)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")

@@ -77,9 +77,14 @@ export function isLocalDelivery(warehouse, customerPincode, customerCity = "") {
   const custPincode = extractPincode(customerPincode);
   const custCity = normalizeCity(customerCity);
 
-  // Check 1: Designated Free Delivery Pincode Prefixes (Indore: 452, 453; Shivpuri: 473)
-  if (custPincode && custPincode.length >= 3) {
+  const hasValidCustPincode = Boolean(custPincode && custPincode.length === 6);
+
+  // When a valid 6-digit customer delivery PIN is provided, PINCODE IS THE GROUND TRUTH.
+  // We do NOT fall back to city name if the pincode is an outside pincode (e.g. 474001 Gwalior, 110001 Delhi),
+  // because users frequently leave the default city ("Indore") unchanged in forms.
+  if (hasValidCustPincode) {
     const custPrefix = custPincode.slice(0, 3);
+    // Check 1: Designated Free Delivery Pincode Prefixes (Indore: 452, 453; Shivpuri: 473)
     if (FREE_DELIVERY_PINCODE_PREFIXES.includes(custPrefix)) {
       return {
         isLocal: true,
@@ -87,9 +92,22 @@ export function isLocalDelivery(warehouse, customerPincode, customerCity = "") {
         method: "free_city_pincode",
       };
     }
+
+    // Check 2: exact pincode match with warehouse
+    if (warehousePincode && warehousePincode === custPincode) {
+      return { isLocal: true, warehouseCity, method: "pincode_exact" };
+    }
+
+    // Check 3: postal district prefix match (first 3 digits) with warehouse
+    if (warehousePincode && warehousePincode.slice(0, 3) === custPrefix) {
+      return { isLocal: true, warehouseCity, method: "district_prefix" };
+    }
+
+    // Valid 6-digit pincode that does not match local/warehouse zone -> Outside delivery!
+    return { isLocal: false, warehouseCity, method: "outside_pincode" };
   }
 
-  // Check 2: Designated Free Delivery City names (Indore / Shivpuri)
+  // Fallback: If customer PIN is missing or not a 6-digit PIN, check city name
   if (custCity) {
     for (const city of FREE_DELIVERY_CITIES) {
       if (custCity.includes(city)) {
@@ -107,24 +125,7 @@ export function isLocalDelivery(warehouse, customerPincode, customerCity = "") {
     return { isLocal: false, warehouseCity, method: "no_pincode" };
   }
 
-  // Check 3: exact pincode match with warehouse
-  if (warehousePincode === custPincode) {
-    return { isLocal: true, warehouseCity, method: "pincode_exact" };
-  }
-
-  // Check 4: postal district prefix match (first 3 digits) with warehouse
-  const warehouseDistrict = warehousePincode.slice(0, 3);
-  const customerDistrict = custPincode.slice(0, 3);
-  if (warehouseDistrict === customerDistrict) {
-    return { isLocal: true, warehouseCity, method: "district_prefix" };
-  }
-
-  // If the first digit (postal zone) differs (e.g. 4 vs 5), they are in different states/regions
-  if (warehousePincode[0] !== custPincode[0]) {
-    return { isLocal: false, warehouseCity, method: "different_zone" };
-  }
-
-  // Check 5: city name match with warehouse
+  // Check 4: city name match with warehouse
   if (warehouseCity && custCity && warehouseCity === custCity) {
     return { isLocal: true, warehouseCity, method: "city_match" };
   }
@@ -248,7 +249,11 @@ export async function findBestWarehouseForCheckout(cartItems = []) {
     }
   }
 
-  if (candidates.length === 0) return null;
+  // If no single warehouse has complete stock for all items, fall back to
+  // the primary warehouse (warehouses[0]) so shipping rate calculation never fails
+  if (candidates.length === 0) {
+    return warehouses[0];
+  }
 
   // If only one candidate, return it
   if (candidates.length === 1) return candidates[0];
@@ -350,12 +355,14 @@ export async function calculateCheckoutShipping({
   if (totalWeight <= 0) totalWeight = defaultWeight;
 
   // 3. Find best fulfilment warehouse
-  const warehouse = await findBestWarehouseForCheckout(itemsForWarehouse);
+  let warehouse = await findBestWarehouseForCheckout(itemsForWarehouse);
 
   if (!warehouse) {
-    const err = new Error("Products are currently out of stock at all warehouses.");
-    err.statusCode = 422;
-    throw err;
+    warehouse = await Warehouse.findOne({ isActive: true }).lean();
+  }
+
+  if (!warehouse) {
+    warehouse = { warehouseName: "Main Hub", city: "Indore", pincode: "452001" };
   }
 
   const warehousePincode = extractPincode(warehouse.pincode);

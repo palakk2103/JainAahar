@@ -388,12 +388,18 @@ const CheckoutPage = () => {
         savedRecipient.pincode ||
         savedRecipient.completeAddress?.match(/\b(\d{6})\b/)?.[1] ||
         "";
+      let recCity = savedRecipient.city || "";
+      if (recPin && recPin.length === 6 && !recPin.startsWith("452") && !recPin.startsWith("453")) {
+        if (recCity.toLowerCase().includes("indore")) {
+          recCity = "";
+        }
+      }
       return {
         type: "Other",
         name: savedRecipient.name,
         address: savedRecipient.completeAddress,
         landmark: savedRecipient.landmark || "",
-        city: savedRecipient.city || recPin || "",
+        city: recCity || recPin || "",
         pincode: recPin,
         phone: savedRecipient.phone,
         location:
@@ -421,8 +427,8 @@ const CheckoutPage = () => {
       (typeof currentAddress.city === "string" ? currentAddress.city.match(/\b(\d{6})\b/)?.[1] : null);
 
     const resolvedPincode =
-      pinFromAddress ||
       currentAddress.pincode ||
+      pinFromAddress ||
       currentLocation?.pincode ||
       "";
 
@@ -430,6 +436,13 @@ const CheckoutPage = () => {
     let resolvedCity = currentAddress.city || "";
     if (resolvedCity.includes("-")) {
       resolvedCity = resolvedCity.split("-")[0].trim();
+    }
+
+    // If the resolved pincode is not an Indore pincode (452xxx / 453xxx), do not allow city to falsely say "Indore"
+    if (resolvedPincode && resolvedPincode.length === 6 && !resolvedPincode.startsWith("452") && !resolvedPincode.startsWith("453")) {
+      if (resolvedCity.toLowerCase().includes("indore")) {
+        resolvedCity = "";
+      }
     }
 
     return {

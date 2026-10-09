@@ -69,8 +69,11 @@ const AddProduct = () => {
     tags: "",
     weight: "",
     brand: "",
+    shelfLife: "",
     mainImage: null,
     galleryImages: [],
+    mainImageFile: null,
+    galleryFiles: [],
     highlights: [
       { icon: "leaf", label: "100% Natural" },
       { icon: "avocado", label: "Farm Fresh" },
@@ -149,7 +152,7 @@ const AddProduct = () => {
       return;
     }
 
-    const firstVariant = formData.variants[0] || {};
+    const firstVariant = formData.variants?.[0] || { price: "", salePrice: "", stock: "" };
     if (!firstVariant.price || !firstVariant.stock) {
       toast.error("Main variant must have price and stock");
       return;
@@ -166,12 +169,13 @@ const AddProduct = () => {
       data.append("description", formData.description);
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
+      data.append("shelfLife", formData.shelfLife || "");
       data.append("status", formData.status);
 
       // Map top-level price/stock from first variant for indexing/listing
-      data.append("price", firstVariant.price);
-      data.append("salePrice", firstVariant.salePrice || 0);
-      data.append("stock", firstVariant.stock);
+      data.append("price", String(firstVariant.price || 0));
+      data.append("salePrice", String(firstVariant.salePrice || 0));
+      data.append("stock", String(firstVariant.stock || 0));
 
       // Category IDs
       data.append("headerId", formData.header || "");
@@ -248,7 +252,7 @@ const AddProduct = () => {
           Back to Products
         </Button>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" className="" onClick={() => navigate(-1)}>
             Cancel
           </Button>
           <Button
@@ -384,6 +388,22 @@ const AddProduct = () => {
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-mono font-bold outline-none ring-primary/5 focus:ring-2 transition-all"
                     placeholder="AUTO-GENERATED"
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5 flex flex-col">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                    Shelf Life (Optional)
+                  </label>
+                  <input
+                    value={formData.shelfLife}
+                    onChange={(e) =>
+                      setFormData({ ...formData, shelfLife: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-semibold outline-none ring-primary/5 focus:ring-2 transition-all"
+                    placeholder="e.g. 3 Days, 6 Months, 1 Year"
+                  />
+                  <p className="text-[10px] text-slate-400 ml-1">Leave empty if you don't want to show shelf life on product details.</p>
                 </div>
               </div>
             </div>

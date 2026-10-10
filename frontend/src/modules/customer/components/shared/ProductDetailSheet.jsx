@@ -753,7 +753,7 @@ const ProductDetailSheet = () => {
                                                     {[
                                                         activeProduct?.shelfLife ? { label: 'Shelf Life', value: activeProduct.shelfLife, emoji: '📅' } : null,
                                                         { label: 'Country of Origin', value: activeProduct?.countryOfOrigin || 'India', emoji: '🇮🇳' },
-                                                        { label: 'FSSAI License', value: activeProduct?.fssaiLicense || '1001234567890', emoji: '🛡️' },
+                                                        { label: 'FSSAI License', value: activeProduct?.fssaiLicense || '21425590000362', emoji: '🛡️' },
                                                         { label: 'Customer Care', value: supportEmail, emoji: '📧' }
                                                     ].filter(Boolean).map((d) => (
                                                         <div key={d.label} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 group hover:bg-white hover:shadow-sm transition-all">
@@ -1114,7 +1114,7 @@ const ProductDetailSheet = () => {
                                                     {[
                                                         activeProduct?.shelfLife ? { label: 'Shelf Life', value: activeProduct.shelfLife } : null,
                                                         { label: 'Country of Origin', value: activeProduct?.countryOfOrigin || 'India' },
-                                                        { label: 'FSSAI License', value: activeProduct?.fssaiLicense || '1001234567890' },
+                                                        { label: 'FSSAI License', value: activeProduct?.fssaiLicense || '21425590000362' },
                                                         { label: 'Customer Care', value: supportEmail }
                                                     ].filter(Boolean).map((d) => (
                                                         <div key={d.label} className="bg-slate-50 p-3 rounded-xl border border-slate-100">

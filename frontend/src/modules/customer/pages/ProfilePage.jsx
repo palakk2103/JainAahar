@@ -4,7 +4,7 @@ import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, ShoppingCart,
     ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe,
-    Phone, ScrollText, Truck, RotateCcw, MessageSquare, Settings
+    Phone, ScrollText, Truck, RotateCcw, MessageSquare, Settings, Gift
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -13,6 +13,7 @@ import { useToast } from '@shared/components/ui/Toast';
 import { useCustomerNotification } from '../context/CustomerNotificationContext';
 import CartPage from './CartPage';
 import { cn } from '@/lib/utils';
+import { customerApi } from '../services/customerApi';
 
 const ProfilePage = () => {
     const navigate = useNavigate();
@@ -25,6 +26,13 @@ const ProfilePage = () => {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isLangExpanded, setIsLangExpanded] = useState(false);
+    const [referralEnabled, setReferralEnabled] = useState(false);
+
+    React.useEffect(() => {
+        customerApi.getReferralProgram()
+            .then((res) => setReferralEnabled(Boolean(res?.data?.result?.enabled)))
+            .catch(() => setReferralEnabled(false));
+    }, []);
 
     React.useEffect(() => {
         if (refreshUser) {
@@ -177,6 +185,15 @@ const ProfilePage = () => {
                                 path="/wallet"
                                 badgeBg="bg-teal-50/80 border-teal-100/70 text-teal-700"
                             />
+                            {referralEnabled && (
+                                <MenuItem
+                                    icon={Gift}
+                                    label="Refer & Earn"
+                                    sub="Invite friends and earn coins"
+                                    path="/refer-earn"
+                                    badgeBg="bg-amber-50/80 border-amber-100/70 text-amber-700"
+                                />
+                            )}
                             <MenuItem
                                 icon={BadgePercent}
                                 label={t('wishlist')}

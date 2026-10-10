@@ -14,6 +14,8 @@ import logger from "../services/logger.js";
 import { incrementCounter, recordHistogram } from "../services/metrics.js";
 import { registerWarehouseGpsWatchdogProcessor } from "../jobs/warehouseGpsWatchdogJob.js";
 import { registerQueueOfferTimeoutProcessor } from "../jobs/queueOfferTimeoutJob.js";
+import { deliveryWebhookQueue } from "./deliveryQueues.js";
+import { processDeliveryWebhook } from "../modules/delivery/webhooks/webhookProcessor.js";
 
 export function registerOrderQueueProcessors() {
   if (!isRedisEnabled()) {
@@ -129,6 +131,20 @@ export function registerOrderQueueProcessors() {
       
       throw error; // Re-throw to let Bull handle retry
     }
+  });
+
+  // Courier webhook queue (Shiprocket / Porter). Jobs are enqueued by
+  // routes/deliveryWebhookRoutes.js; previously nothing consumed them.
+  deliveryWebhookQueue.process(async (job) => {
+    const result = await processDeliveryWebhook(job.data);
+    if (result && result.success === false) {
+      logger.warn('Delivery webhook job rejected', {
+        jobId: job.id,
+        provider: job.data?.providerName,
+        reason: result.reason,
+      });
+    }
+    return result;
   });
 
   // Return-pickup timeout queue processor — same shape as delivery timeout.

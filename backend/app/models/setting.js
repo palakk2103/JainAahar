@@ -205,6 +205,29 @@ const settingSchema = new mongoose.Schema(
                 default: true,
             },
         },
+        /**
+         * Refer & Earn program. Rewards are coins credited to the customer
+         * wallet (1 coin = 1 INR). Percentage rewards are calculated on the
+         * qualifying order's net item value (product subtotal - discount;
+         * delivery, handling, tip and tax excluded).
+         */
+        referralProgram: {
+            enabled: { type: Boolean, default: false },
+            referrerReward: {
+                type: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
+                value: { type: Number, default: 0, min: 0 },
+                maxCoins: { type: Number, default: 0, min: 0 },
+            },
+            referredReward: {
+                type: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
+                value: { type: Number, default: 0, min: 0 },
+                maxCoins: { type: Number, default: 0, min: 0 },
+            },
+            minOrderValue: { type: Number, default: 0, min: 0 },
+            // Days after signup within which the first eligible order must be
+            // placed. 0 = no expiry.
+            validityDays: { type: Number, default: 0, min: 0 },
+        },
         homeVideoBanner: {
             videoUrl: {
                 type: String,

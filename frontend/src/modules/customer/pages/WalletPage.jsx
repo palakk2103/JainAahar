@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, ArrowDownLeft, ChevronLeft, Wallet, ArrowRight, Plus, X, Loader2, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ChevronLeft, Wallet, ArrowRight, Plus, X, Loader2, CheckCircle2, ShieldCheck, Sparkles, Gift, Coins } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { useToast } from '@shared/components/ui/Toast';
 import { invalidateCache } from '@core/api/dedupe';
@@ -26,6 +26,13 @@ const WalletPage = () => {
     const [balance, setBalance] = useState(() => cachedWalletData?.balance ?? 0);
     const [transactions, setTransactions] = useState(() => cachedWalletData?.transactions ?? []);
     const [loading, setLoading] = useState(() => !cachedWalletData);
+    const [referralEnabled, setReferralEnabled] = useState(false);
+
+    useEffect(() => {
+        customerApi.getReferralProgram()
+            .then((res) => setReferralEnabled(Boolean(res?.data?.result?.enabled)))
+            .catch(() => setReferralEnabled(false));
+    }, []);
 
     // Modal state for PhonePe / UPI Add Money
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -130,6 +137,24 @@ const WalletPage = () => {
                     </div>
                 </div>
 
+                {referralEnabled && (
+                    <button
+                        onClick={() => navigate('/refer-earn')}
+                        className="w-full rounded-2xl border border-amber-100 bg-amber-50/70 p-4 flex items-center justify-between text-left cursor-pointer hover:bg-amber-50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white border border-amber-100 flex items-center justify-center text-amber-600">
+                                <Gift size={18} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-slate-800">Refer & Earn</p>
+                                <p className="text-[11px] text-slate-500">Invite friends and earn coins (1 coin = ₹1)</p>
+                            </div>
+                        </div>
+                        <ArrowRight size={16} className="text-amber-600" />
+                    </button>
+                )}
+
                 {/* Transaction History Section */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -179,6 +204,11 @@ const WalletPage = () => {
                                                 <p className="text-[11px] font-medium text-slate-500 mt-0.5">{formatDate(tx.date)}</p>
                                                 {tx.orderId && (
                                                     <p className="text-[10px] text-slate-400">Order #{tx.orderId}</p>
+                                                )}
+                                                {tx.category === 'referral' && (
+                                                    <p className="text-[10px] font-bold text-amber-600 flex items-center gap-1 mt-0.5">
+                                                        <Coins size={11} /> {isCredit ? '+' : '−'}{tx.coins} coins
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>

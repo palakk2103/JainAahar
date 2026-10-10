@@ -102,15 +102,15 @@ const CustomerLayout = ({
 
     // Desktop header visibility
     const hideHeaderDesktopRoutes = [
-        '/', '/orders', '/checkout', '/search', '/notifications', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy', '/payment-status'
+        '/', '/orders', '/checkout', '/search', '/notifications', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy', '/payment-status', '/wallet', '/refer-earn'
     ];
-    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isSearch || isNotifications || isChat || path.startsWith('/orders') || isPaymentStatus;
+    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isSearch || isNotifications || isChat || path.startsWith('/orders') || isPaymentStatus || path.startsWith('/wallet') || path.startsWith('/refer-earn');
     const showHeaderDesktop = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenDesktop;
 
     // Mobile header visibility: Hide layout Header on mobile when page has its own mobile header
     const hideHeaderMobileRoutes = [
         '/', '/categories', '/orders', '/transactions', '/profile',
-        '/profile/edit', '/wishlist', '/addresses', '/wallet',
+        '/profile/edit', '/wishlist', '/addresses', '/wallet', '/refer-earn',
         '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms',
         '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy',
         '/checkout', '/search', '/chat', '/notifications', '/payment-status'

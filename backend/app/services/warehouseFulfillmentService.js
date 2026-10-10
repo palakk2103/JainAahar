@@ -688,6 +688,9 @@ export async function markCompleted({ id, user, notes = "" }) {
       { new: true },
     );
     if (updatedOrder) {
+      const { processReferralForOrder } = await import("./referralService.js");
+      await processReferralForOrder(updatedOrder);
+
       emitOrderStatusUpdate(
         fulfillment.orderId,
         {

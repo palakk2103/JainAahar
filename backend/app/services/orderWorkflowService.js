@@ -1499,3 +1499,192 @@ export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
     warning: settlementWarning,
   };
 }
+
+/**
+ * Forward-only progression rank used by external (courier) status updates.
+ * Terminal states (DELIVERED / CANCELLED) are never moved by this path.
+ */
+const EXTERNAL_PROGRESS_RANK = {
+  [WORKFLOW_STATUS.CREATED]: 0,
+  [WORKFLOW_STATUS.SELLER_PENDING]: 1,
+  [WORKFLOW_STATUS.SELLER_ACCEPTED]: 2,
+  [WORKFLOW_STATUS.DELIVERY_SEARCH]: 3,
+  [WORKFLOW_STATUS.DELIVERY_ASSIGNED]: 4,
+  [WORKFLOW_STATUS.PICKUP_READY]: 5,
+  [WORKFLOW_STATUS.OUT_FOR_DELIVERY]: 6,
+};
+
+// Webhook retries arriving sooner than this after delivery are assumed to
+// be duplicates of an in-flight delivery and do not re-run settlement.
+const EXTERNAL_SETTLEMENT_RETRY_GRACE_MS = 30 * 1000;
+
+function isTerminalOrder(order) {
+  return (
+    order.status === "delivered" ||
+    order.status === "cancelled" ||
+    order.workflowStatus === WORKFLOW_STATUS.DELIVERED ||
+    order.workflowStatus === WORKFLOW_STATUS.CANCELLED
+  );
+}
+
+/**
+ * Apply a canonical workflow status reported by an external delivery
+ * provider (Shiprocket / Porter webhooks).
+ *
+ * DELIVERED runs the same post-delivery pipeline as rider OTP delivery
+ * (`applyDeliveredSettlement` -> finance settlement, COD bookkeeping,
+ * referral rewards) and the same socket / notification events. The state
+ * change is a single conditional update, so concurrent or retried webhooks
+ * deliver the order exactly once; a retry against an already-delivered order
+ * only re-runs the (idempotent) settlement if it had not completed.
+ *
+ * In-transit statuses only move the order forward. CANCELLED (incl. RTO) is
+ * recorded but never auto-cancels: cancellation has refund/stock side effects
+ * that require an admin decision.
+ */
+export async function transitionWorkflowStatus({
+  orderId,
+  targetStatus,
+  actor = "system",
+  reason = "",
+}) {
+  if (!orderId || !targetStatus) {
+    return { applied: false, reason: "MISSING_ARGUMENTS" };
+  }
+
+  const order = await Order.findOne({ orderId }).lean();
+  if (!order) return { applied: false, reason: "ORDER_NOT_FOUND" };
+
+  if (targetStatus === WORKFLOW_STATUS.DELIVERED) {
+    const now = new Date();
+    const updated = await Order.findOneAndUpdate(
+      {
+        _id: order._id,
+        status: { $nin: ["delivered", "cancelled"] },
+        workflowStatus: { $nin: [WORKFLOW_STATUS.DELIVERED, WORKFLOW_STATUS.CANCELLED] },
+      },
+      {
+        $set: {
+          status: "delivered",
+          orderStatus: "delivered",
+          workflowStatus: WORKFLOW_STATUS.DELIVERED,
+          deliveredAt: order.deliveredAt || now,
+          sellerPendingExpiresAt: null,
+          deliverySearchExpiresAt: null,
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      const current = await Order.findById(order._id).lean();
+      const isDelivered =
+        current?.status === "delivered" || current?.workflowStatus === WORKFLOW_STATUS.DELIVERED;
+      if (!isDelivered) {
+        logger.warn("External DELIVERED ignored for cancelled order", {
+          scope: "transitionWorkflowStatus",
+          orderId,
+          actor,
+          status: current?.status,
+        });
+        return { applied: false, reason: "ORDER_CANCELLED" };
+      }
+      // Duplicate / retried webhook. Repair settlement only if it never
+      // completed (every step inside is idempotent). Skip while the first
+      // delivery's settlement may still be running to avoid racing it.
+      const deliveredAgoMs = Date.now() - new Date(current.deliveredAt || 0).getTime();
+      if (
+        !current.financeFlags?.deliveredSettlementApplied &&
+        deliveredAgoMs > EXTERNAL_SETTLEMENT_RETRY_GRACE_MS
+      ) {
+        try {
+          await applyDeliveredSettlement(current, orderId);
+        } catch (error) {
+          logger.error("Settlement retry failed after external delivery", {
+            scope: "transitionWorkflowStatus",
+            orderId,
+            error: error.message,
+          });
+        }
+      }
+      return { applied: false, duplicate: true, reason: "ALREADY_DELIVERED" };
+    }
+
+    let settlementWarning = null;
+    try {
+      await applyDeliveredSettlement(updated, orderId);
+    } catch (error) {
+      // Order is delivered; finance can be retried by a repeated webhook.
+      logger.error("Settlement failed after external delivery", {
+        scope: "transitionWorkflowStatus",
+        orderId,
+        actor,
+        error: error.message,
+      });
+      settlementWarning = { code: "FINANCE_SETTLEMENT_FAILED", message: error.message };
+    }
+
+    emitOrderStatusUpdate(
+      orderId,
+      { workflowStatus: WORKFLOW_STATUS.DELIVERED, status: "delivered" },
+      updated.customer,
+    );
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
+      orderId: updated.orderId,
+      customerId: updated.customer,
+      userId: updated.customer,
+      deliveryId: updated.deliveryBoy,
+      sellerId: updated.seller,
+    });
+
+    logger.info("Order delivered via external provider", {
+      scope: "transitionWorkflowStatus",
+      orderId,
+      actor,
+      reason,
+    });
+    return { applied: true, status: WORKFLOW_STATUS.DELIVERED, warning: settlementWarning };
+  }
+
+  if (targetStatus === WORKFLOW_STATUS.CANCELLED) {
+    logger.warn("External provider reported cancellation/RTO; manual review required", {
+      scope: "transitionWorkflowStatus",
+      orderId,
+      actor,
+      reason,
+      currentStatus: order.status,
+    });
+    return { applied: false, reason: "MANUAL_REVIEW_REQUIRED" };
+  }
+
+  const targetRank = EXTERNAL_PROGRESS_RANK[targetStatus];
+  if (targetRank == null) return { applied: false, reason: "UNSUPPORTED_STATUS" };
+  if (isTerminalOrder(order)) return { applied: false, reason: "ORDER_TERMINAL" };
+
+  const currentRank = EXTERNAL_PROGRESS_RANK[order.workflowStatus] ?? -1;
+  if (currentRank >= targetRank) return { applied: false, reason: "NOT_FORWARD" };
+
+  const set = { workflowStatus: targetStatus };
+  if (targetStatus === WORKFLOW_STATUS.OUT_FOR_DELIVERY) {
+    set.status = "out_for_delivery";
+    set.orderStatus = "out_for_delivery";
+    if (!order.outForDeliveryAt) set.outForDeliveryAt = new Date();
+  }
+  const moved = await Order.findOneAndUpdate(
+    {
+      _id: order._id,
+      status: { $nin: ["delivered", "cancelled"] },
+      workflowStatus: order.workflowStatus ? order.workflowStatus : { $in: [null] },
+    },
+    { $set: set },
+    { new: true },
+  );
+  if (!moved) return { applied: false, reason: "CONCURRENT_UPDATE" };
+
+  emitOrderStatusUpdate(
+    orderId,
+    { workflowStatus: moved.workflowStatus, status: moved.status },
+    moved.customer,
+  );
+  return { applied: true, status: targetStatus };
+}

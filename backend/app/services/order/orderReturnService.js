@@ -39,6 +39,7 @@ import { cancelPendingPayoutForOrder } from "../finance/payoutService.js";
 import { LEDGER_TRANSACTION_TYPE, OWNER_TYPE } from "../../constants/finance.js";
 import { clearOrderTracking } from "../firebaseService.js";
 import logger from "../logger.js";
+import { reverseReferralRewardForOrder } from "../referralService.js";
 
 function err(message, statusCode) {
   const error = new Error(message);
@@ -691,6 +692,13 @@ export class OrderReturnService {
         NOTIFICATION_EVENTS.REFUND_COMPLETED,
         notificationBag.payload,
       );
+    }
+
+    // Refer & Earn: take back referral coins if this order earned them.
+    // Runs after commit (never aborts the refund) and is idempotent, so a
+    // retried call against an already-refunded order just reconciles.
+    if (savedOrder?.returnStatus === "refund_completed") {
+      await reverseReferralRewardForOrder(savedOrder._id, { trigger: "RETURN_REFUND" });
     }
 
     // Return finished — drop realtime tracking nodes for this order so the

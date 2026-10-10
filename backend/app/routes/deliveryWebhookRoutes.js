@@ -1,6 +1,7 @@
 import express from "express";
 import { getRegisteredProvider } from "../modules/delivery/deliveryProviderRegistry.js";
 import { deliveryWebhookQueue } from "../queues/deliveryQueues.js";
+import { isRedisEnabled } from "../config/redis.js";
 import { processDeliveryWebhook } from "../modules/delivery/webhooks/webhookProcessor.js";
 import logger from "../services/logger.js";
 
@@ -29,8 +30,9 @@ router.post("/webhook/:provider", async (req, res) => {
   }
 
   try {
-    // If Bull Queue is available, queue for background processing; else process immediately
-    if (deliveryWebhookQueue && typeof deliveryWebhookQueue.add === "function") {
+    // Queue only when a real (Redis-backed) queue exists; the no-op queue used
+    // without Redis also has `add`, which would silently drop the webhook.
+    if (isRedisEnabled() && deliveryWebhookQueue && typeof deliveryWebhookQueue.add === "function") {
       await deliveryWebhookQueue.add({
         providerName,
         rawBody: typeof rawBody === "string" ? rawBody : (Buffer.isBuffer(rawBody) ? rawBody.toString("utf-8") : JSON.stringify(rawBody)),

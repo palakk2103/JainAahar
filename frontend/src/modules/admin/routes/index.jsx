@@ -25,6 +25,7 @@ import {
   UserCheck,
   MessageSquare,
   Flame,
+  Gift,
 } from "lucide-react";
 
 const DealSectionManager = React.lazy(
@@ -83,6 +84,7 @@ const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const ReviewModeration = React.lazy(() => import("../pages/ReviewModeration"));
 const FleetTracking = React.lazy(() => import("../pages/FleetTracking"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
+const ReferralManagement = React.lazy(() => import("../pages/ReferralManagement"));
 const ContentManager = React.lazy(() => import("../pages/ContentManager"));
 const HeroCategoriesPerPage = React.lazy(() => import("../pages/HeroCategoriesPerPage"));
 const NotificationComposer = React.lazy(
@@ -227,6 +229,7 @@ const navItems = [
     ],
   },
   { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
+  { label: "Refer & Earn", path: "/admin/referrals", icon: Gift, color: "amber" },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
 
@@ -301,6 +304,7 @@ const AdminRoutes = () => {
         <Route path="/offer-sections" element={<OfferSectionsManagement />} />
         <Route path="/shop-by-store" element={<ShopByStoreManagement />} />
         <Route path="/coupons" element={<CouponManagement />} />
+        <Route path="/referrals" element={<ReferralManagement />} />
         <Route path="/sellers/pending" element={<PendingSellers />} />
         <Route path="/seller-locations" element={<SellerLocations />} />
         <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />

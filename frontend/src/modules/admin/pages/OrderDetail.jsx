@@ -93,12 +93,14 @@ const OrderDetail = () => {
         setShowAssignModal(true);
         setIsEvaluating(true);
         try {
-            const res = await adminApi.getWarehouseEligibility(orderId);
+            const targetId = order?._id || orderId;
+            const res = await adminApi.getWarehouseEligibility(targetId);
             if (res.data.success) {
                 setEligibilityData(res.data.result);
             }
         } catch (err) {
-            showToast("Failed to evaluate warehouse eligibility", "error");
+            console.error("Warehouse eligibility evaluation error:", err);
+            showToast(err.response?.data?.message || "Failed to evaluate warehouse eligibility", "error");
         } finally {
             setIsEvaluating(false);
         }
@@ -107,7 +109,8 @@ const OrderDetail = () => {
     const handleAssignWarehouse = async (warehouseId) => {
         setIsAssigning(true);
         try {
-            const res = await adminApi.assignWarehouse(orderId, { warehouseId, force: true });
+            const targetId = order?._id || orderId;
+            const res = await adminApi.assignWarehouse(targetId, { warehouseId, force: true });
             if (res.data.success) {
                 showToast("Order assigned to warehouse successfully", "success");
                 setShowAssignModal(false);

@@ -65,6 +65,15 @@ import {
     assignWarehouseToOrderHandler,
 } from "../controller/warehouseAssignmentController.js";
 
+import {
+    adminGetReferral,
+    adminGetReferralSettings,
+    adminListReferralAudit,
+    adminListReferrals,
+    adminReevaluateReferral,
+    adminUpdateReferralSettings,
+} from "../controller/referralController.js";
+
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import {
     adminBootstrapRateLimiter,
@@ -286,6 +295,14 @@ router.get("/warehouse-queue/:warehouseId/stats", verifyToken, allowRoles("admin
 router.get("/orders/unassigned", verifyToken, allowRoles("admin"), getUnassignedOrdersHandler);
 router.get("/orders/:orderId/warehouse-eligibility", verifyToken, allowRoles("admin"), getEligibleWarehousesForOrderHandler);
 router.post("/orders/:orderId/assign-warehouse", verifyToken, allowRoles("admin"), assignWarehouseToOrderHandler);
+
+// Refer & Earn (Admin)
+router.get("/referrals/settings", verifyToken, allowRoles("admin"), adminGetReferralSettings);
+router.put("/referrals/settings", verifyToken, allowRoles("admin"), adminUpdateReferralSettings);
+router.get("/referrals/audit", verifyToken, allowRoles("admin"), adminListReferralAudit);
+router.get("/referrals", verifyToken, allowRoles("admin"), adminListReferrals);
+router.get("/referrals/:id", verifyToken, allowRoles("admin"), adminGetReferral);
+router.post("/referrals/:id/reevaluate", verifyToken, allowRoles("admin"), adminReevaluateReferral);
 
 export default router;
 

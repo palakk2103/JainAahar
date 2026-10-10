@@ -71,6 +71,11 @@ export const LEDGER_TRANSACTION_TYPE = {
   // ledger write inside `cancelPendingPayoutForOrder` threw a Mongoose
   // ValidationError and silently aborted the refund flow.
   PAYOUT_CANCELLED: "PAYOUT_CANCELLED",
+  // Emitted by `payoutService.createPendingPayoutForOrder` when a seller /
+  // rider payout is queued on delivery. It was referenced but never defined,
+  // so the ledger write failed validation and aborted every delivered-order
+  // settlement (same class of bug as PAYOUT_CANCELLED above).
+  PAYOUT_QUEUED: "PAYOUT_QUEUED",
   // Audit Phase 4 (H-5): emitted by `placeOrderAtomic` when a customer
   // redeems wallet balance at checkout. Previously the wallet debit only
   // wrote a legacy `Transaction({type:"Wallet Payment"})` row and mutated
@@ -79,6 +84,12 @@ export const LEDGER_TRANSACTION_TYPE = {
   // wallet-using customer in permanent drift between the two ledgers.
   WALLET_PAYMENT: "WALLET_PAYMENT",
   WALLET_TOPUP: "WALLET_TOPUP",
+  // Refer & Earn: coins (1 coin = 1 INR) credited to the customer wallet
+  // for a referrer / referred customer after the first eligible order.
+  REFERRAL_REWARD: "REFERRAL_REWARD",
+  // Refer & Earn: coins taken back when the qualifying order is returned,
+  // refunded or cancelled after the reward was credited.
+  REFERRAL_REWARD_REVERSAL: "REFERRAL_REWARD_REVERSAL",
 };
 
 export const PAYOUT_TYPE = {

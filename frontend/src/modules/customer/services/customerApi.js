@@ -25,6 +25,11 @@ export const customerApi = {
   },
   getWhatsAppPreferences: () => axiosInstance.get("/customer/whatsapp/preferences"),
   updateWhatsAppPreferences: (data) => axiosInstance.put("/customer/whatsapp/preferences", data),
+  // Refer & Earn
+  getReferralOverview: () => axiosInstance.get("/customer/referral"),
+  getReferralProgram: () => getWithDedupe("/customer/referral/program", {}, { ttl: 30 * 1000 }),
+  validateReferralCode: (code) =>
+    axiosInstance.get(`/customer/referral/validate/${encodeURIComponent(code)}`),
   getWalletTransactions: (params, options = {}) =>
     getWithDedupe("/customer/transactions", params, { ttl: 2000, ...options }),
   addWalletMoney: (data) => {

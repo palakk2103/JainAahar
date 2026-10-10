@@ -11,6 +11,7 @@ const CustomerAuth = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(location.pathname !== '/signup');
+    const [referralCheck, setReferralCheck] = useState({ state: 'idle', message: '' });
     const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
     const [isLoading, setIsLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
@@ -27,8 +28,43 @@ const CustomerAuth = () => {
         email: '',
         otp: '',
         name: '',
-        referralCode: new URLSearchParams(window.location.search).get('ref') || ''
+        referralCode: (new URLSearchParams(window.location.search).get('ref') || '').toUpperCase()
     });
+
+    // Validate the referral code shortly after the user stops typing.
+    useEffect(() => {
+        const code = formData.referralCode.trim();
+        if (isLogin || !code) {
+            setReferralCheck({ state: 'idle', message: '' });
+            return undefined;
+        }
+        if (code.length < 4) return undefined;
+        setReferralCheck({ state: 'checking', message: '' });
+        const timeout = setTimeout(async () => {
+            try {
+                const res = await customerApi.validateReferralCode(code);
+                const result = res?.data?.result || {};
+                const reward = result.reward;
+                const rewardText = reward
+                    ? reward.type === 'percentage'
+                        ? `${reward.value}% of your first order in coins${reward.maxCoins ? ` (up to ${reward.maxCoins})` : ''}`
+                        : `${reward.value} coins`
+                    : '';
+                setReferralCheck({
+                    state: 'valid',
+                    message: result.kind === 'customer'
+                        ? `Code applied${result.referrerName ? ` (invited by ${result.referrerName})` : ''}.${rewardText ? ` You'll get ${rewardText} after your first order is delivered.` : ''}`
+                        : 'Referral code is valid.',
+                });
+            } catch (error) {
+                setReferralCheck({
+                    state: 'invalid',
+                    message: error?.response?.data?.message || 'Invalid referral code',
+                });
+            }
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [formData.referralCode, isLogin]);
 
     // Synchronize mode with current route
     useEffect(() => {
@@ -102,6 +138,10 @@ const CustomerAuth = () => {
                 toast.error(t('enterFullName'));
                 return;
             }
+            if (!isLogin && referralCheck.state === 'invalid') {
+                toast.error(referralCheck.message || 'Please fix or remove the referral code');
+                return;
+            }
 
             setIsLoading(true);
             try {
@@ -132,6 +172,10 @@ const CustomerAuth = () => {
             }
             if (!isLogin && !formData.name.trim()) {
                 toast.error(t('enterFullName'));
+                return;
+            }
+            if (!isLogin && referralCheck.state === 'invalid') {
+                toast.error(referralCheck.message || 'Please fix or remove the referral code');
                 return;
             }
 
@@ -174,9 +218,14 @@ const CustomerAuth = () => {
                 )
             };
             const response = await customerApi.verifyOtp(payload);
-            const { token, customer } = response.data.result;
+            const { token, customer, referral } = response.data.result;
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
+            if (referral?.applied) {
+                toast.success('Referral code applied! Your coins will be credited after your first order is delivered.');
+            } else if (referral && referral.message) {
+                toast.warning(`Referral not applied: ${referral.message}`);
+            }
             navigate('/');
         } catch (error) {
             const apiMessage = error?.response?.data?.message || error?.message || t('invalidOtp');
@@ -337,8 +386,21 @@ const CustomerAuth = () => {
                                             value={formData.referralCode}
                                             placeholder={t('referralCode') || 'Referral Code (Optional)'}
                                             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all uppercase"
-                                            onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                                            onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase().replace(/\s/g, '') })}
                                         />
+                                        {referralCheck.state !== 'idle' && (
+                                            <p
+                                                className={`mt-1.5 px-1 text-[11px] font-semibold ${
+                                                    referralCheck.state === 'valid'
+                                                        ? 'text-emerald-600'
+                                                        : referralCheck.state === 'invalid'
+                                                            ? 'text-red-500'
+                                                            : 'text-gray-400'
+                                                }`}
+                                            >
+                                                {referralCheck.state === 'checking' ? 'Checking code...' : referralCheck.message}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}

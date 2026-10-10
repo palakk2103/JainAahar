@@ -141,6 +141,24 @@ const userSchema = new mongoose.Schema(
             default: null,
         },
 
+        // Customer-to-customer Refer & Earn code (generated lazily).
+        referralCode: {
+            type: String,
+            uppercase: true,
+            trim: true,
+            default: undefined,
+        },
+
+        // Customer referral code entered at signup; applied once the OTP
+        // is verified (proves ownership of the phone/email).
+        pendingReferralCode: {
+            type: String,
+            uppercase: true,
+            trim: true,
+            default: undefined,
+            select: false,
+        },
+
         lastLogin: Date,
 
         // WhatsApp notification preferences
@@ -185,6 +203,15 @@ userSchema.index(
         unique: true,
         partialFilterExpression: { phone: { $type: "string", $gt: "" } },
         name: "idx_user_phone_unique",
+    }
+);
+
+userSchema.index(
+    { referralCode: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { referralCode: { $type: "string" } },
+        name: "idx_user_referral_code_unique",
     }
 );
 

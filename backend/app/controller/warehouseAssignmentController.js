@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { handleResponse } from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
 import Order from "../models/order.js";
@@ -49,9 +50,10 @@ export const getEligibleWarehousesForOrderHandler = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    const order = await Order.findOne({
-      $or: [{ _id: orderId }, { orderId }],
-    }).lean();
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId);
+    const order = await Order.findOne(
+      isObjectId ? { $or: [{ _id: orderId }, { orderId }] } : { orderId },
+    ).lean();
 
     if (!order) {
       return handleResponse(res, 404, "Order not found");

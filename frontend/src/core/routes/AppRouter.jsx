@@ -52,6 +52,7 @@ import CheckoutPage from '../../modules/customer/pages/CheckoutPage';
 import PaymentStatusPage from '../../modules/customer/pages/PaymentStatusPage';
 import SearchPage from '../../modules/customer/pages/SearchPage';
 import WalletPage from '../../modules/customer/pages/WalletPage';
+import ReferEarnPage from '../../modules/customer/pages/ReferEarnPage';
 import NotificationsPage from '../../modules/customer/pages/NotificationsPage';
 
 // Lazy load heavy admin/seller/delivery/warehouse portals
@@ -228,6 +229,7 @@ const AppRouter = () => {
                         { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
                         { path: 'profile/edit', element: <ProtectedRoute><EditProfilePage /></ProtectedRoute> },
                         { path: 'wallet', element: <ProtectedRoute><WalletPage /></ProtectedRoute> },
+                        { path: 'refer-earn', element: <ProtectedRoute><ReferEarnPage /></ProtectedRoute> },
                         { path: 'notifications', element: <ProtectedRoute><NotificationsPage /></ProtectedRoute> },
                         { path: 'search', element: <SearchPage /> },
                     ]

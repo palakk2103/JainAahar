@@ -23,11 +23,8 @@ const Header = () => {
         currentPath.includes('profile') ||
         currentPath.startsWith('/checkout') ||
         currentPath.startsWith('/search') ||
-        currentPath.startsWith('/notifications');
-
-    if (isHiddenPage) {
-        return null;
-    }
+        currentPath.startsWith('/notifications') ||
+        currentPath.startsWith('/wallet');
 
     const isCheckoutPage = location.pathname === '/checkout';
     const [isLocationOpen, setIsLocationOpen] = useState(false);
@@ -84,6 +81,12 @@ const Header = () => {
 
         return () => clearTimeout(timeout);
     }, [typingState]);
+
+    // Must come after every hook: returning earlier changes the hook count
+    // between renders ("Rendered more hooks than during the previous render").
+    if (isHiddenPage) {
+        return null;
+    }
 
     return (
         <header className="absolute top-4 md:top-8 left-0 right-0 z-[200] px-4">

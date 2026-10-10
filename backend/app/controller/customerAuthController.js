@@ -9,6 +9,7 @@ import handleResponse from "../utils/helper.js";
 import { creditWallet } from "../services/finance/walletService.js";
 import { createPaymentOrderForWalletTopup } from "../services/paymentService.js";
 import { OWNER_TYPE, LEDGER_TRANSACTION_TYPE } from "../constants/finance.js";
+import { applyPendingReferral } from "../services/referralService.js";
 import {
     issueCustomerOtp,
     sanitizeCustomer,
@@ -83,6 +84,9 @@ export const verifyCustomerOTP = async (req, res) => {
             ipAddress: req.ip,
         });
         const token = generateToken(customer);
+        // Refer & Earn: apply a code entered at signup now that ownership of
+        // the phone/email is proven. Never blocks login.
+        const referral = await applyPendingReferral(customer._id);
 
         return handleResponse(
             res,
@@ -91,6 +95,7 @@ export const verifyCustomerOTP = async (req, res) => {
             {
                 token,
                 customer: sanitizeCustomer(customer),
+                ...(referral ? { referral } : {}),
             }
         );
     } catch (error) {
@@ -271,6 +276,8 @@ export const getCustomerTransactions = async (req, res) => {
                 if (l.type === "WALLET_TOPUP") displayTitle = "Money Added";
                 else if (l.type === "REFUND") displayTitle = "Refund Credited";
                 else if (l.type === "WALLET_REDEMPTION_AT_CHECKOUT" || l.type === "ORDER_PAYMENT") displayTitle = "Order Payment";
+                else if (l.type === "REFERRAL_REWARD") displayTitle = l.metadata?.side === "REFERRER" ? "Referral Reward (Friend joined)" : "Referral Welcome Reward";
+                else if (l.type === "REFERRAL_REWARD_REVERSAL") displayTitle = "Referral Coins Reversed (Order returned)";
 
                 allItemsMap.set(refKey, {
                     _id: l._id,
@@ -280,7 +287,12 @@ export const getCustomerTransactions = async (req, res) => {
                     date: l.createdAt || new Date(),
                     reference: refKey,
                     orderId: l.orderId?.orderId || l.orderId || null,
-                    paymentMethod: l.paymentMode || l.metadata?.paymentMethod || "PhonePe UPI",
+                    paymentMethod: l.type === "REFERRAL_REWARD" || l.type === "REFERRAL_REWARD_REVERSAL"
+                        ? "Refer & Earn coins"
+                        : l.paymentMode || l.metadata?.paymentMethod || "PhonePe UPI",
+                    ...(l.type === "REFERRAL_REWARD" || l.type === "REFERRAL_REWARD_REVERSAL"
+                        ? { category: "referral", coins: Math.abs(l.amount || 0) }
+                        : {}),
                     createdAt: l.createdAt || new Date(),
                 });
             }

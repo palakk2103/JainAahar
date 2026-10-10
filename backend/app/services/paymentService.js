@@ -20,6 +20,7 @@ import { releaseReservedStockForOrder } from "./stockService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import logger from "./logger.js";
+import { reverseReferralRewardForOrder } from "./referralService.js";
 import { getActivePaymentProvider } from "./payment/providerRegistry.js";
 
 const MAX_MERCHANT_ORDER_ID_LENGTH = 63;
@@ -443,6 +444,7 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
     );
     await updateCheckoutGroupPaymentStatus(payment.checkoutGroupId, nextStatus);
     for (const order of orders) {
+      await reverseReferralRewardForOrder(order._id, { trigger: "PAYMENT_REFUNDED" });
       emitNotificationEvent(NOTIFICATION_EVENTS.REFUND_COMPLETED, {
         orderId: order.orderId,
         checkoutGroupId: payment.checkoutGroupId,

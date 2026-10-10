@@ -1,11 +1,11 @@
 import crypto from "crypto";
 import Customer from "../models/customer.js";
-import Employee from "../models/employee.js";
 import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
 import { generateOTP, useRealSMS, isMockOtpEnabled, MOCK_OTP } from "../utils/otp.js";
 import { getRedisClient } from "../config/redis.js";
 import { isValidE164Phone, maskPhone, normalizePhoneNumber } from "../utils/phone.js";
 import { sendCustomerOtpEmail } from "./emailService.js";
+import { resolveSignupReferralCode } from "./referralService.js";
 
 const OTP_EXPIRY_MINUTES = () => parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
 const OTP_RESEND_COOLDOWN_SECONDS = () =>
@@ -113,6 +113,25 @@ export function normalizeAndValidatePhone(rawPhone) {
   return phone;
 }
 
+/**
+ * Employee codes link the customer immediately (existing behaviour).
+ * Customer Refer & Earn codes are stored as pending and only applied after
+ * the OTP is verified (see referralService.applyPendingReferral).
+ */
+function applySignupReferral(customer, resolved) {
+  if (!resolved) return;
+  if (resolved.kind === "employee") {
+    if (!customer.referredBy) customer.referredBy = resolved.employee._id;
+    return;
+  }
+  if (String(resolved.referrer._id) === String(customer._id)) {
+    const err = new Error("You cannot use your own referral code");
+    err.statusCode = 400;
+    throw err;
+  }
+  customer.pendingReferralCode = resolved.code;
+}
+
 export async function issueCustomerOtp({
   name = "",
   rawPhone,
@@ -122,6 +141,12 @@ export async function issueCustomerOtp({
   ipAddress = "unknown",
 }) {
   const now = new Date();
+
+  // Validate the referral code before touching the customer record so an
+  // invalid code is rejected without side effects.
+  const resolvedReferral = referralCode
+    ? await resolveSignupReferralCode(referralCode)
+    : null;
 
   if (rawEmail) {
     const email = String(rawEmail).toLowerCase().trim();
@@ -155,12 +180,7 @@ export async function issueCustomerOtp({
       );
     }
 
-    if (referralCode && !customer.referredBy) {
-      const employee = await Employee.findOne({ referralCode: referralCode.toUpperCase() });
-      if (employee) {
-        customer.referredBy = employee._id;
-      }
-    }
+    applySignupReferral(customer, resolvedReferral);
 
     if (!isTest && customer.otpLockedUntil && customer.otpLockedUntil > now) {
       const err = new Error("OTP verification is temporarily locked for this email");
@@ -232,12 +252,7 @@ export async function issueCustomerOtp({
     );
   }
 
-  if (referralCode && !customer.referredBy) {
-    const employee = await Employee.findOne({ referralCode: referralCode.toUpperCase() });
-    if (employee) {
-      customer.referredBy = employee._id;
-    }
-  }
+  applySignupReferral(customer, resolvedReferral);
 
   if (!isTest && customer.otpLockedUntil && customer.otpLockedUntil > now) {
     const err = new Error("OTP verification is temporarily locked for this number");
@@ -512,5 +527,6 @@ export function sanitizeCustomer(customerDoc) {
   delete obj.otpLockedUntil;
   delete obj.otpLastSentAt;
   delete obj.otpSessionVersion;
+  delete obj.pendingReferralCode;
   return obj;
 }

@@ -58,6 +58,7 @@ import { computeReturnWindowForOrder } from "../utils/returnWindow.js";
 import logger from "../services/logger.js";
 import { validateBody as validateWithJoi } from "../middleware/validate.js";
 import OrderReturnService from "../services/order/orderReturnService.js";
+import { reverseReferralRewardForOrder } from "../services/referralService.js";
 
 function normalizePaymentMode(value) {
   const raw = String(value || "").trim().toUpperCase();
@@ -568,6 +569,15 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     await order.save();
+
+    // A delivered order cancelled afterwards must give back referral coins.
+    if (status === "cancelled" && oldStatus === "delivered") {
+      await reverseReferralRewardForOrder(order._id, {
+        trigger: "ORDER_CANCELLED",
+        actorType: String(role || "SYSTEM").toUpperCase(),
+        actorId: userId || null,
+      });
+    }
 
     emitOrderStatusUpdate(
       canonicalOrderId,
@@ -1169,6 +1179,7 @@ const completeReturnAndRefundLegacy = async (order) => {
   }
 
   await order.save();
+  await reverseReferralRewardForOrder(order._id, { trigger: "RETURN_REFUND" });
   emitNotificationEvent(NOTIFICATION_EVENTS.REFUND_COMPLETED, {
     orderId: order.orderId,
     customerId: order.customer,

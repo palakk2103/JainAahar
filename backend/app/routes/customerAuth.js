@@ -10,6 +10,11 @@ import {
     addCustomerWalletMoney,
 } from "../controller/customerAuthController.js";
 import { createWalletPaymentOrder } from "../controller/paymentController.js";
+import {
+    getMyReferral,
+    getReferralProgram,
+    validateReferralCode,
+} from "../controller/referralController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import {
     authRouteRateLimiter,
@@ -37,5 +42,10 @@ router.get("/transactions", verifyToken, getCustomerTransactions);
 router.post("/wallet/add-money", verifyToken, createWalletPaymentOrder);
 router.post("/wallet/create-payment-order", verifyToken, createWalletPaymentOrder);
 router.post("/create-wallet-order", verifyToken, createWalletPaymentOrder);
+
+// Refer & Earn
+router.get("/referral/program", getReferralProgram);
+router.get("/referral/validate/:code", authRouteRateLimiter, validateReferralCode);
+router.get("/referral", verifyToken, getMyReferral);
 
 export default router;

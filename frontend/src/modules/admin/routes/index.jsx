@@ -100,7 +100,7 @@ const ShopByStoreManagement = React.lazy(
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const EnvSettings = React.lazy(() => import("../pages/EnvSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
-const WhatsAppManagement = React.lazy(() => import("../pages/WhatsAppManagement"));
+
 
 const MonthlyBasketCategories = React.lazy(() => import("../pages/MonthlyBasketCategories"));
 const MonthlyBasketBanners = React.lazy(() => import("../pages/MonthlyBasketBanners"));
@@ -198,7 +198,6 @@ const navItems = [
     icon: Sparkles,
     color: "amber",
     children: [
-      { label: "WhatsApp Integration", path: "/admin/whatsapp" },
       { label: "Create Sections", path: "/admin/experience-studio" },
       { label: "Hero & categories per page", path: "/admin/hero-categories" },
       { label: "Send Notifications", path: "/admin/notifications" },
@@ -326,7 +325,6 @@ const AdminRoutes = () => {
         <Route path="/returns" element={<Returns />} />
         <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
-        <Route path="/whatsapp" element={<WhatsAppManagement />} />
         <Route path="/inventory" element={<InventoryManagement />} />
         <Route path="/store-profile" element={<StoreProfile />} />
         <Route path="/store-analytics" element={<StoreAnalytics />} />

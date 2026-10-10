@@ -21,7 +21,6 @@ import {
     Youtube,
     Loader2,
     X,
-    MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -325,13 +324,6 @@ const AdminSettings = () => {
                     <p className="ds-description mt-1">Manage global configurations, branding, and legal information.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Link
-                        to="/admin/whatsapp"
-                        className="flex items-center gap-2 px-5 py-4 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
-                    >
-                        <MessageSquare className="h-4 w-4 text-emerald-600" />
-                        WhatsApp Business
-                    </Link>
                     <button
                         onClick={handleSave}
                         disabled={isSaving}

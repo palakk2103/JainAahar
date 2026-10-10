@@ -5,6 +5,7 @@ import WarehouseFulfillment, {
 } from "../models/warehouseFulfillment.js";
 import Order from "../models/order.js";
 import Warehouse from "../models/warehouse.js";
+import Product from "../models/product.js";
 import {
   commitWarehouseStock,
   releaseWarehouseStockReservation,
@@ -485,8 +486,8 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
   }
 
   const [order, warehouse] = await Promise.all([
-    Order.findById(fulfillmentDoc.order).lean(),
-    Warehouse.findById(fulfillmentDoc.warehouse).lean(),
+    Order.findById(fulfillmentDoc.order?._id || fulfillmentDoc.order).lean(),
+    Warehouse.findById(fulfillmentDoc.warehouse?._id || fulfillmentDoc.warehouse).lean(),
   ]);
 
   if (!order) {
@@ -544,13 +545,21 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
 
   const shipmentResult = await shiprocketProvider.createShipment(context);
 
-  fulfillmentDoc.shiprocketOrderId = shipmentResult.externalId || `SR-${order.orderId}`;
-  fulfillmentDoc.awbCode = shipmentResult.externalId;
-  fulfillmentDoc.courierName = "Shiprocket";
-  fulfillmentDoc.trackingUrl = shipmentResult.trackingUrl || (shipmentResult.externalId ? `https://shiprocket.co/tracking/${shipmentResult.externalId}` : null);
-  fulfillmentDoc.shipmentStatus = shipmentResult.providerStatus || "SHIPMENT_CREATED";
+  const updateFields = {
+    shiprocketOrderId: shipmentResult.externalId || `SR-${order.orderId}`,
+    awbCode: shipmentResult.externalId,
+    courierName: "Shiprocket",
+    trackingUrl: shipmentResult.trackingUrl || (shipmentResult.externalId ? `https://shiprocket.co/tracking/${shipmentResult.externalId}` : null),
+    shipmentStatus: shipmentResult.providerStatus || "SHIPMENT_CREATED",
+  };
 
-  await fulfillmentDoc.save();
+  if (typeof fulfillmentDoc.save === "function") {
+    Object.assign(fulfillmentDoc, updateFields);
+    await fulfillmentDoc.save();
+  } else {
+    await WarehouseFulfillment.findByIdAndUpdate(fulfillmentDoc._id, { $set: updateFields });
+    Object.assign(fulfillmentDoc, updateFields);
+  }
 
   // Reconcile shipping charges if final rate returned by provider
   try {

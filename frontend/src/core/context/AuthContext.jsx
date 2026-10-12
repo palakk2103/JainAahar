@@ -144,11 +144,12 @@ export const AuthProvider = ({ children }) => {
                     setUser(response.data.result);
                 } catch (error) {
                     console.error('Failed to fetch profile:', error);
-                    if (error.response?.status === 404 || error.response?.status === 401) {
-                        console.warn('User not found or token invalid, logging out automatically.');
+                    // Do not wipe customer token on transient server or network glitches;
+                    // preserve login session so user is not forced to re-verify OTP.
+                    if (error.response?.status === 401 && (currentRole === 'admin' || currentRole === 'seller')) {
+                        console.warn('Privileged user token rejected, logging out.');
                         logout();
                     } else {
-                        // Preserve stored tokens on network failures or server errors
                         setUser(null);
                     }
                 } finally {

@@ -513,6 +513,14 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                                             {Number(order.pricing?.deliveryFee || 0) === 0 ? "FREE" : `+ ₹${order.pricing?.deliveryFee}`}
                                                         </td>
                                                     </tr>
+                                                    {Number(order.pricing?.platformFee || order.paymentBreakdown?.handlingFeeCharged || 0) > 0 && (
+                                                        <tr>
+                                                            <td style={{ padding: "3px 0", color: "#64748b", fontWeight: "600" }}>Handling Fee</td>
+                                                            <td align="right" style={{ padding: "3px 0", fontWeight: "700", color: "#0f172a" }}>
+                                                                + ₹{order.pricing?.platformFee || order.paymentBreakdown?.handlingFeeCharged}
+                                                            </td>
+                                                        </tr>
+                                                    )}
                                                     {Number(order.pricing?.tip || 0) > 0 && (
                                                         <tr>
                                                             <td style={{ padding: "3px 0", color: "#64748b", fontWeight: "600" }}>Tip</td>

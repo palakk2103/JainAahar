@@ -131,5 +131,68 @@ describe("checkout pricing snapshot handling fee", () => {
     expect(sellerA.breakdown.handlingFeeCharged).toBe(0);
     expect(sellerB.breakdown.handlingFeeCharged).toBe(30);
   });
+
+  it("charges ₹15 handling fee for COD and ₹9 for ONLINE across checkouts", async () => {
+    mockProductFind.mockReturnValue(
+      createQueryChain([
+        {
+          _id: "p1",
+          name: "Item",
+          salePrice: 0,
+          price: 500,
+          mainImage: "",
+          headerId: "h1",
+          sellerId: "seller-a",
+          status: "active",
+          variants: [],
+        },
+      ]),
+    );
+
+    mockCategoryFind.mockReturnValue(
+      createQueryChain([
+        {
+          _id: "h1",
+          name: "Header 1",
+          adminCommissionType: "percentage",
+          adminCommissionValue: 0,
+          adminCommissionFixedRule: "per_qty",
+          handlingFeeType: "fixed",
+          handlingFeeValue: 0,
+          handlingFees: 0,
+        },
+      ]),
+    );
+
+    mockGetOrCreateFinanceSettings.mockResolvedValue({
+      deliveryPricingMode: "fixed_price",
+      fixedDeliveryFee: 0,
+      customerBaseDeliveryFee: 0,
+      riderBasePayout: 0,
+      handlingFeeStrategy: "highest_category_fee",
+      codEnabled: true,
+      onlineEnabled: true,
+    });
+
+    // 1. Test COD
+    const codSnapshot = await buildCheckoutPricingSnapshot({
+      orderItems: [{ product: "p1", quantity: 1 }],
+      address: {},
+      paymentMode: "COD",
+      session: null,
+    });
+    expect(codSnapshot.aggregateBreakdown.handlingFeeCharged).toBe(15);
+    expect(codSnapshot.aggregateBreakdown.grandTotal).toBe(515);
+
+    // 2. Test ONLINE
+    const onlineSnapshot = await buildCheckoutPricingSnapshot({
+      orderItems: [{ product: "p1", quantity: 1 }],
+      address: {},
+      paymentMode: "ONLINE",
+      session: null,
+    });
+    expect(onlineSnapshot.aggregateBreakdown.handlingFeeCharged).toBe(9);
+    expect(onlineSnapshot.aggregateBreakdown.grandTotal).toBe(509);
+  });
 });
 

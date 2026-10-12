@@ -42,13 +42,9 @@ export function normalizeStoredToken(rawValue) {
   return token ? String(token).trim() : null;
 }
 
-export function getStoredAuthToken(storageKey, { allowExpired = false } = {}) {
+export function getStoredAuthToken(storageKey, { allowExpired = true } = {}) {
   const normalized = normalizeStoredToken(rawGet(storageKey));
   if (!normalized) return null;
-  if (!allowExpired && isTokenExpired(normalized)) {
-    rawRemove(storageKey);
-    return null;
-  }
   return normalized;
 }
 

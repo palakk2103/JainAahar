@@ -124,7 +124,7 @@ function buildToken(account, userType) {
   return jwt.sign(
     { id: account._id, role: config.tokenRole },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
+    { expiresIn: process.env.JWT_EXPIRES_IN || "3650d" },
   );
 }
 

@@ -16,12 +16,19 @@ const CustomerAuth = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
     const [timer, setTimer] = useState(0);
-    const { login } = useAuth();
+    const { login, isAuthenticated } = useAuth();
     const { settings } = useSettings();
     const { t, language, setLanguage, languages } = useTranslation();
     const [isLangOpen, setIsLangOpen] = useState(false);
     const dropdownRef = useRef(null);
     const appName = settings?.appName || 'App';
+
+    // If user is already authenticated, redirect to home immediately
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/', { replace: true });
+        }
+    }, [isAuthenticated, navigate]);
 
     const [formData, setFormData] = useState({
         phone: '',

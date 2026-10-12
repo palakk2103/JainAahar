@@ -369,7 +369,7 @@ const CheckoutPage = () => {
         id: "online",
         label: "Pay Online (PhonePe / UPI / Cards)",
         icon: CreditCard,
-        sublabel: "UPI, Cards, NetBanking via PhonePe",
+        sublabel: "Handling Fee: ₹9 • UPI, Cards, NetBanking via PhonePe",
       },
     ];
 
@@ -378,7 +378,7 @@ const CheckoutPage = () => {
         id: "cash",
         label: "Cash on Delivery",
         icon: Banknote,
-        sublabel: "Pay after delivery",
+        sublabel: "Handling Fee: ₹15 • Pay after delivery",
       });
     }
 
@@ -441,6 +441,13 @@ const CheckoutPage = () => {
       ? 99
       : Number(pricingPreview?.deliveryFeeCharged || 0);
 
+  const fallbackHandlingFee =
+    pricingPreview?.handlingFeeCharged != null
+      ? Number(pricingPreview.handlingFeeCharged)
+      : selectedPayment === "cash"
+      ? 15
+      : 9;
+
   const grossOrderTotal = Number(
     pricingPreview?.grandTotal != null
       ? (pricingPreview?.shippingRateSource === "shiprocket" && pricingPreview?.deliveryFeeCharged !== 99
@@ -450,7 +457,7 @@ const CheckoutPage = () => {
           0,
           (cartTotal || 0) +
             effectiveDeliveryFee +
-            Number(pricingPreview?.handlingFeeCharged || 0) +
+            fallbackHandlingFee +
             Number(pricingPreview?.taxTotal || 0) +
             Number(selectedTip || 0) -
             Number(discountAmount || 0)
@@ -1609,6 +1616,7 @@ const CheckoutPage = () => {
               cartTotal={cartTotal}
               selectedCoupon={selectedCoupon}
               discountAmount={discountAmount}
+              selectedPayment={selectedPayment}
             />
 
             {/* Payment Selector */}

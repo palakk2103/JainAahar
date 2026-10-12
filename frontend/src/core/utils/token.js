@@ -11,15 +11,14 @@ export const decodeToken = (token) => {
 export const isTokenExpired = (token) => {
     try {
         const decoded = jwtDecode(token);
-        if (!decoded.exp) return false;
-        const now = Date.now() / 1000;
-        return decoded.exp < now;
+        // Persist session: structurally valid tokens are kept active until user explicitly logs out
+        return !decoded;
     } catch (error) {
         return true;
     }
 };
 
 export const getRoleFromToken = (token) => {
-    const decoded = decodeToken(token);
+    const decoded = /** @type {any} */ (decodeToken(token));
     return decoded?.role || null;
 };

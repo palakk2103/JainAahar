@@ -29,12 +29,17 @@ function CheckoutPricingBreakdown({
   cartTotal,
   selectedCoupon,
   discountAmount,
+  selectedPayment,
 }) {
   const deliveryFee =
     pricingPreview?.shippingRateSource === "shiprocket"
       ? 99
       : (pricingPreview?.deliveryFeeCharged || 0);
-  const handlingFee = pricingPreview?.handlingFeeCharged || 0;
+  const defaultHandlingFee = selectedPayment === "cash" ? 15 : 9;
+  const handlingFee =
+    pricingPreview?.handlingFeeCharged != null
+      ? Number(pricingPreview.handlingFeeCharged)
+      : defaultHandlingFee;
   const tipAmount = pricingPreview?.tipTotal || selectedTip || 0;
   const taxAmount = pricingPreview?.taxTotal || 0;
 
@@ -158,9 +163,14 @@ function CheckoutPricingBreakdown({
               </div>
             )}
           <div className="flex justify-between items-center px-2">
-            <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
-              Handling Fee
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+                Handling Fee
+              </span>
+              <span className="text-[11px] font-semibold text-slate-400">
+                ({selectedPayment === "cash" ? "COD" : "Online"})
+              </span>
+            </div>
             <span className="font-black text-slate-800">₹{handlingFee}</span>
           </div>
           <div className="flex justify-between items-center px-2">

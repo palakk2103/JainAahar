@@ -1014,6 +1014,14 @@ const OrderDetailPage = () => {
                   : `₹${order.pricing.deliveryFee}`}
               </span>
             </div>
+            {Number(order.pricing?.platformFee || order.paymentBreakdown?.handlingFeeCharged || 0) > 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>Handling Fee</span>
+                <span className="font-semibold">
+                  ₹{order.pricing?.platformFee || order.paymentBreakdown?.handlingFeeCharged}
+                </span>
+              </div>
+            )}
             {order.pricing.tip > 0 && (
               <div className="flex justify-between text-slate-600">
                 <span>Tip</span>

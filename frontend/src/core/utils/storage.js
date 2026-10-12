@@ -47,13 +47,122 @@ const swallow = (fn) => {
     }
 };
 
+/** @type {Set<string>} */
+const AUTH_STORAGE_KEYS = new Set([
+    STORAGE_KEYS.AUTH_CUSTOMER,
+    STORAGE_KEYS.AUTH_SELLER,
+    STORAGE_KEYS.AUTH_ADMIN,
+    STORAGE_KEYS.AUTH_DELIVERY,
+    STORAGE_KEYS.AUTH_WAREHOUSE,
+    STORAGE_KEYS.AUTH_LEGACY,
+]);
+
+function getCookie(name) {
+    if (!isBrowser() || typeof document === 'undefined') return null;
+    try {
+        const match = document.cookie.match(new RegExp('(?:^|; )' + encodeURIComponent(name) + '=([^;]*)'));
+        return match ? decodeURIComponent(match[1]) : null;
+    } catch {
+        return null;
+    }
+}
+
+function setCookie(name, value, days = 3650) {
+    if (!isBrowser() || typeof document === 'undefined') return;
+    try {
+        const maxAge = days * 24 * 60 * 60;
+        document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    } catch {}
+}
+
+function deleteCookie(name) {
+    if (!isBrowser() || typeof document === 'undefined') return;
+    try {
+        document.cookie = `${encodeURIComponent(name)}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    } catch {}
+}
+
+const IDB_NAME = 'jainaahar_persistent_auth';
+const IDB_STORE = 'credentials';
+
+function openAuthDB() {
+    if (!isBrowser() || typeof indexedDB === 'undefined') return Promise.resolve(null);
+    return new Promise((resolve) => {
+        try {
+            const req = indexedDB.open(IDB_NAME, 1);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(IDB_STORE)) {
+                    db.createObjectStore(IDB_STORE);
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+        } catch {
+            resolve(null);
+        }
+    });
+}
+
+function saveToIndexedDB(key, val) {
+    openAuthDB().then((db) => {
+        if (!db) return;
+        try {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put(val, key);
+        } catch {}
+    });
+}
+
+function removeFromIndexedDB(key) {
+    openAuthDB().then((db) => {
+        if (!db) return;
+        try {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).delete(key);
+        } catch {}
+    });
+}
+
+export function syncAuthBackups() {
+    if (!isBrowser()) return;
+    openAuthDB().then((db) => {
+        if (!db) return;
+        try {
+            const tx = db.transaction(IDB_STORE, 'readonly');
+            const store = tx.objectStore(IDB_STORE);
+            AUTH_STORAGE_KEYS.forEach((key) => {
+                const req = store.get(key);
+                req.onsuccess = () => {
+                    const idbVal = req.result;
+                    if (idbVal && !resolveStorage('local')?.getItem(key)) {
+                        rawSet(key, idbVal);
+                    }
+                };
+            });
+        } catch {}
+    });
+}
+
 /** Safe read of a raw string value. Returns null on any failure. */
 export function rawGet(key, { storage = 'local' } = {}) {
     const store = resolveStorage(storage);
     if (!store || !key) return null;
     try {
-        return store.getItem(key);
+        let val = store.getItem(key);
+        if (!val && storage === 'local' && AUTH_STORAGE_KEYS.has(key)) {
+            const cookieVal = getCookie(key);
+            if (cookieVal) {
+                store.setItem(key, cookieVal);
+                saveToIndexedDB(key, cookieVal);
+                return cookieVal;
+            }
+        }
+        return val;
     } catch {
+        if (storage === 'local' && AUTH_STORAGE_KEYS.has(key)) {
+            return getCookie(key);
+        }
         return null;
     }
 }
@@ -64,8 +173,16 @@ export function rawSet(key, value, { storage = 'local' } = {}) {
     if (!store || !key) return false;
     try {
         store.setItem(key, value);
+        if (storage === 'local' && AUTH_STORAGE_KEYS.has(key)) {
+            setCookie(key, value);
+            saveToIndexedDB(key, value);
+        }
         return true;
     } catch (error) {
+        if (storage === 'local' && AUTH_STORAGE_KEYS.has(key)) {
+            setCookie(key, value);
+            saveToIndexedDB(key, value);
+        }
         if (error && error.name === 'QuotaExceededError') {
             try {
                 evictExpiredEntries(storage);
@@ -85,8 +202,16 @@ export function rawRemove(key, { storage = 'local' } = {}) {
     if (!store || !key) return false;
     try {
         store.removeItem(key);
+        if (storage === 'local' && AUTH_STORAGE_KEYS.has(key)) {
+            deleteCookie(key);
+            removeFromIndexedDB(key);
+        }
         return true;
     } catch {
+        if (storage === 'local' && AUTH_STORAGE_KEYS.has(key)) {
+            deleteCookie(key);
+            removeFromIndexedDB(key);
+        }
         return false;
     }
 }
@@ -240,10 +365,12 @@ export function evictExpiredEntries(storage = 'both') {
  */
 export function ensureStorageSchema() {
     if (!isBrowser()) return;
+    syncAuthBackups();
     const stored = Number(rawGet(SCHEMA_KEY) || 0);
     if (stored === STORAGE_SCHEMA_VERSION) return;
 
     for (const key of ALL_KNOWN_KEYS) {
+        if (AUTH_STORAGE_KEYS.has(String(key))) continue; // NEVER wipe login session keys on schema upgrade
         rawRemove(key, { storage: 'local' });
         rawRemove(key, { storage: 'session' });
     }
@@ -269,10 +396,11 @@ export function ensureStorageSchema() {
  *   - Last known location (UX preference for guest browsing).
  *
  * Pass options to override defaults.
+ * @param {{ role?: string, userId?: string, clearGuestCart?: boolean, clearGuestWishlist?: boolean, clearLastLocation?: boolean }} [options]
  */
 export function clearOnLogout({
-    role,
-    userId,
+    role = '',
+    userId = '',
     clearGuestCart = true,
     clearGuestWishlist = true,
     clearLastLocation = false,

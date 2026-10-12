@@ -234,7 +234,7 @@ const LogsTab = () => {
     const [applied, setApplied] = useState(filters);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    const [data, setData] = useState({ items: [], total: 0, totalPages: 1, summary: {} });
+    const [data, setData] = useState({ items: [], total: 0, totalPages: 1, page: 1, summary: {} });
     const [loading, setLoading] = useState(false);
     const [detail, setDetail] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -396,7 +396,7 @@ const LogsTab = () => {
                 </div>
                 <div className="p-4 border-t border-gray-100">
                     <Pagination
-                        page={data.page || page}
+                        page={page}
                         totalPages={data.totalPages || 1}
                         total={data.total || 0}
                         pageSize={pageSize}
@@ -465,7 +465,7 @@ const AuditTab = () => {
     const [applied, setApplied] = useState(filters);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    const [data, setData] = useState({ items: [], total: 0, totalPages: 1 });
+    const [data, setData] = useState({ items: [], total: 0, totalPages: 1, page: 1 });
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -538,7 +538,7 @@ const AuditTab = () => {
             </div>
             <div className="p-4 border-t border-gray-100">
                 <Pagination
-                    page={data.page || page}
+                    page={page}
                     totalPages={data.totalPages || 1}
                     total={data.total || 0}
                     pageSize={pageSize}

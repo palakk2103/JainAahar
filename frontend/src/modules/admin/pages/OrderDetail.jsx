@@ -160,9 +160,29 @@ const OrderDetail = () => {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                allowTaint: true,
                 backgroundColor: "#ffffff",
+                width: 794,
+                windowWidth: 794,
+                scrollX: 0,
+                scrollY: 0,
                 onclone: (clonedDoc) => {
+                    /** @type {any} */
+                    const clonedRoot = clonedDoc.querySelector('[data-invoice-root]');
+                    if (clonedRoot) {
+                        clonedRoot.style.width = '794px';
+                        clonedRoot.style.minWidth = '794px';
+                        clonedRoot.style.maxWidth = '794px';
+                        clonedRoot.style.display = 'block';
+                        clonedRoot.style.position = 'static';
+                        clonedRoot.style.margin = '0 auto';
+                    }
+                    /** @type {any} */
+                    const clonedParent = clonedRoot?.parentElement;
+                    if (clonedParent) {
+                        clonedParent.style.position = 'static';
+                        clonedParent.style.left = '0';
+                    }
+
                     // Forcefully remove any elements or styles that might use oklch
                     // html2canvas crashes when it encounters oklch color functions in stylesheets
                     const styleSheets = clonedDoc.styleSheets;
@@ -183,7 +203,7 @@ const OrderDetail = () => {
                     const style = clonedDoc.createElement('style');
                     style.innerHTML = `
                         :root {
-                            --primary: var(--primary) !important;
+                            --primary: #15803d !important;
                             --secondary: #64748b !important;
                             --background: #ffffff !important;
                             --foreground: #0f172a !important;
@@ -193,12 +213,29 @@ const OrderDetail = () => {
                 }
             });
             const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+            const pdfWidth = 210;
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Invoice_${order.orderId}.pdf`);
+            if (pdfHeight <= 297) {
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+            } else {
+                let heightLeft = pdfHeight;
+                let position = 0;
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
+                heightLeft -= 297;
+                while (heightLeft > 0) {
+                    position = heightLeft - pdfHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
+                    heightLeft -= 297;
+                }
+            }
+            pdf.save(`Invoice_${order.orderId || 'Order'}.pdf`);
             showToast("Invoice downloaded successfully", "success");
         } catch (error) {
             console.error("PDF generation failed:", error);
@@ -672,143 +709,309 @@ const OrderDetail = () => {
             </div>
 
             {/* Hidden Printable Invoice Template */}
-            <div className="fixed -left-[9999px] top-0">
+            <div className="fixed -left-[9999px] top-0 pointer-events-none" style={{ zIndex: -100 }}>
                 <div 
                     ref={invoiceRef}
-                    className="w-[800px] bg-white p-1"
-                    style={{ backgroundColor: "#f8fafc" }}
+                    data-invoice-root="true"
+                    style={{ 
+                        width: "794px",
+                        minWidth: "794px",
+                        maxWidth: "794px",
+                        backgroundColor: "#ffffff",
+                        padding: "36px 40px",
+                        boxSizing: "border-box",
+                        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                        color: "#0f172a",
+                        lineHeight: 1.4,
+                    }}
                 >
-                    {/* Inner Paper with Border */}
-                    <div style={{ 
-                        backgroundColor: "#ffffff", 
-                        margin: "40px",
-                        padding: "65px",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "2px",
-                        boxShadow: "0 0 10px rgba(0,0,0,0.02)",
-                        fontFamily: "'Inter', system-ui, sans-serif",
-                        color: "#1e293b",
-                        minHeight: "1050px"
-                    }}>
-                        {/* Header: Centered Brand */}
-                        <div style={{ textAlign: "center", marginBottom: "50px" }}>
-                            {settings?.logoUrl ? (
-                                <img src={settings.logoUrl} alt="Logo" width="130" style={{ display: "inline-block", marginBottom: "16px" }} crossOrigin="anonymous" />
-                            ) : (
-                                <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginBottom: "4px" }}>{settings?.appName || 'NOYO KART'}</div>
-                            )}
-                            <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "800", textTransform: "uppercase", letterSpacing: "3px" }}>Official Tax Invoice</div>
-                        </div>
-
-                        {/* Top Meta Details */}
-                        <table width="100%" cellPadding="0" cellSpacing="0" style={{ marginBottom: "50px", borderBottom: "1px solid #f1f5f9", paddingBottom: "25px" }}>
+                    {/* Header: Brand & Tax Invoice Meta */}
+                    <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse", marginBottom: "24px" }}>
+                        <tbody>
                             <tr>
-                                <td width="50%" style={{ verticalAlign: "bottom" }}>
-                                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#0f172a" }}>INVOICE</div>
+                                {/* Left: Brand Identity */}
+                                <td width="58%" style={{ verticalAlign: "top" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "8px" }}>
+                                        <img 
+                                            src={settings?.logoUrl || '/jainaaharlogo-removebg-preview.png'} 
+                                            alt="Logo" 
+                                            style={{ height: "64px", width: "auto", objectFit: "contain", display: "inline-block" }} 
+                                            crossOrigin="anonymous" 
+                                        />
+                                        <div>
+                                            <div style={{ fontSize: "22px", fontWeight: "900", color: "#15803d", letterSpacing: "-0.5px" }}>
+                                                {settings?.appName || 'Jain Aahar'}
+                                            </div>
+                                            <div style={{ fontSize: "11px", fontWeight: "700", color: "#166534" }}>
+                                                शुद्ध सात्विक जैन आहार • 100% Pure Sattvik Food
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: "11px", color: "#64748b", lineHeight: "1.5" }}>
+                                        {settings?.address || 'Indore Regional Hub, Madhya Pradesh'}<br />
+                                        Customer Care: {settings?.supportEmail || 'support@jainahar.com'}
+                                        {settings?.taxId ? ` • GSTIN: ${settings.taxId}` : ''}
+                                    </div>
                                 </td>
-                                <td width="50%" align="right" style={{ verticalAlign: "bottom" }}>
-                                    <div style={{ fontSize: "12px", fontWeight: "700", marginBottom: "4px" }}>Reference: <span style={{ color: "#2563eb" }}>#{order.orderId}</span></div>
-                                    <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "700" }}>Issued: {new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+
+                                {/* Right: Tax Invoice Details Badge */}
+                                <td width="42%" align="right" style={{ verticalAlign: "top" }}>
+                                    <div style={{ 
+                                        display: "inline-block", 
+                                        textAlign: "right",
+                                        backgroundColor: "#f8fafc",
+                                        border: "1px solid #e2e8f0",
+                                        borderRadius: "10px",
+                                        padding: "12px 16px",
+                                        minWidth: "220px",
+                                        maxWidth: "300px",
+                                        boxSizing: "border-box"
+                                    }}>
+                                        <div style={{ fontSize: "16px", fontWeight: "900", color: "#0f172a", textTransform: "uppercase", letterSpacing: "1px" }}>
+                                            TAX INVOICE
+                                        </div>
+                                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#334155", marginTop: "6px", wordBreak: "break-all" }}>
+                                            Invoice Ref: <span style={{ color: "#15803d", fontWeight: "800" }}>#{order.orderId}</span>
+                                        </div>
+                                        <div style={{ fontSize: "11px", color: "#64748b", marginTop: "3px" }}>
+                                            Date: {new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(order.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                        </div>
+                                        <div style={{ marginTop: "6px" }}>
+                                            <span style={{ 
+                                                fontSize: "10px", 
+                                                fontWeight: "800", 
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.5px",
+                                                padding: "3px 8px", 
+                                                borderRadius: "6px",
+                                                display: "inline-block",
+                                                backgroundColor: String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#ecfdf5" : "#fef3c7",
+                                                color: String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#065f46" : "#92400e",
+                                                border: `1px solid ${String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#a7f3d0" : "#fde68a"}`
+                                            }}>
+                                                {String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "● Paid Online" : "● Cash On Delivery"}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
-                        </table>
+                        </tbody>
+                    </table>
 
-                        {/* Address Grid */}
-                        <table width="100%" cellPadding="0" cellSpacing="0" style={{ marginBottom: "55px" }}>
+                    {/* Address Grid: Billed To & Shipped From */}
+                    <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse", marginBottom: "22px" }}>
+                        <tbody>
                             <tr>
-                                <td width="48%" style={{ verticalAlign: "top", paddingRight: "25px" }}>
-                                    <div style={{ fontSize: "9px", fontWeight: "900", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "12px" }}>Billed To</div>
-                                    <div style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", marginBottom: "8px" }}>{order.customer?.name}</div>
-                                    <div style={{ fontSize: "12px", color: "#475569", lineHeight: "1.7" }}>
-                                        {order.address?.address},<br />
-                                        {order.address?.landmark && `${order.address.landmark}, `}{order.address?.city}
+                                {/* Billed To */}
+                                <td width="49%" style={{ verticalAlign: "top" }}>
+                                    <div style={{ 
+                                        border: "1px solid #e2e8f0", 
+                                        borderRadius: "10px", 
+                                        padding: "14px 16px",
+                                        backgroundColor: "#ffffff",
+                                        minHeight: "120px"
+                                    }}>
+                                        <div style={{ fontSize: "10px", fontWeight: "900", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
+                                            Billed & Delivered To
+                                        </div>
+                                        <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginBottom: "4px" }}>
+                                            {order.customer?.name || order.address?.name || 'Customer'}
+                                        </div>
+                                        <div style={{ fontSize: "11px", color: "#475569", lineHeight: "1.6" }}>
+                                            {order.address?.address || order.address?.completeAddress}
+                                            {order.address?.landmark && `, ${order.address.landmark}`}<br />
+                                            {[order.address?.city, order.address?.state, order.address?.pincode].filter(Boolean).join(' - ')}
+                                        </div>
+                                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#0f172a", marginTop: "8px" }}>
+                                            Phone: {order.customer?.phone || order.address?.phone || 'N/A'}
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", marginTop: "15px" }}>Contact: {order.customer?.phone}</div>
                                 </td>
-                                <td width="4%" style={{ borderLeft: "1px solid #f1f5f9" }}></td>
-                                <td width="48%" style={{ verticalAlign: "top", paddingLeft: "25px" }}>
-                                    <div style={{ fontSize: "9px", fontWeight: "900", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "12px" }}>Shipped From</div>
-                                    <div style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", marginBottom: "8px" }}>{order.seller?.shopName || 'Partner Merchant'}</div>
-                                    <div style={{ fontSize: "12px", color: "#475569", lineHeight: "1.7" }}>
-                                        {settings?.address || 'Verified Business Location'}<br />
-                                        Inventory Fulfillment Center
+
+                                <td width="2%"></td>
+
+                                {/* Shipped From */}
+                                <td width="49%" style={{ verticalAlign: "top" }}>
+                                    <div style={{ 
+                                        border: "1px solid #e2e8f0", 
+                                        borderRadius: "10px", 
+                                        padding: "14px 16px",
+                                        backgroundColor: "#ffffff",
+                                        minHeight: "120px"
+                                    }}>
+                                        <div style={{ fontSize: "10px", fontWeight: "900", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
+                                            Shipped & Fulfilled From
+                                        </div>
+                                        <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginBottom: "4px" }}>
+                                            {order.seller?.shopName || 'Jain Aahar Fulfillment Store'}
+                                        </div>
+                                        <div style={{ fontSize: "11px", color: "#475569", lineHeight: "1.6" }}>
+                                            {order.seller?.address || settings?.address || 'Certified Sattvik Hub'}<br />
+                                            {typeof order.warehouse === 'object' && order.warehouse?.city 
+                                                ? `Dispatch Node: ${order.warehouse.city} Hub` 
+                                                : (order.address?.city ? `Fulfillment Hub: ${order.address.city}` : 'Fulfillment Center')}
+                                        </div>
+                                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", marginTop: "8px" }}>
+                                            {settings?.taxId ? `GSTIN: ${settings.taxId}` : 'FSSAI Verified Sattvik Partner'}
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: "11px", fontWeight: "800", color: "#2563eb", marginTop: "15px" }}>{settings?.taxId ? `GSTIN: ${settings.taxId}` : 'Tax Verified Partner'}</div>
                                 </td>
                             </tr>
-                        </table>
+                        </tbody>
+                    </table>
 
-                        {/* Manifest Table */}
-                        <div style={{ marginBottom: "50px" }}>
-                            <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse" }}>
-                                <thead>
-                                    <tr style={{ backgroundColor: "#f8fafc", borderTop: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>
-                                        <th align="left" style={{ padding: "16px 20px", fontSize: "11px", fontWeight: "900", color: "#475569", textTransform: "uppercase" }}>Description</th>
-                                        <th align="center" style={{ padding: "16px 20px", fontSize: "11px", fontWeight: "900", color: "#475569", textTransform: "uppercase" }}>Unit Rate</th>
-                                        <th align="center" style={{ padding: "16px 20px", fontSize: "11px", fontWeight: "900", color: "#475569", textTransform: "uppercase" }}>Qty</th>
-                                        <th align="right" style={{ padding: "16px 20px", fontSize: "11px", fontWeight: "900", color: "#475569", textTransform: "uppercase" }}>Total</th>
+                    {/* Manifest Table */}
+                    <div style={{ marginBottom: "22px", borderRadius: "10px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                        <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse" }}>
+                            <thead>
+                                <tr style={{ backgroundColor: "#f1f5f9", borderBottom: "1px solid #cbd5e1" }}>
+                                    <th style={{ width: "6%", padding: "10px 12px", fontSize: "10px", fontWeight: "900", color: "#334155", textTransform: "uppercase", textAlign: "center" }}>#</th>
+                                    <th style={{ width: "50%", padding: "10px 12px", fontSize: "10px", fontWeight: "900", color: "#334155", textTransform: "uppercase", textAlign: "left" }}>Item Description</th>
+                                    <th style={{ width: "14%", padding: "10px 12px", fontSize: "10px", fontWeight: "900", color: "#334155", textTransform: "uppercase", textAlign: "right" }}>Rate</th>
+                                    <th style={{ width: "12%", padding: "10px 12px", fontSize: "10px", fontWeight: "900", color: "#334155", textTransform: "uppercase", textAlign: "center" }}>Qty</th>
+                                    <th style={{ width: "18%", padding: "10px 12px", fontSize: "10px", fontWeight: "900", color: "#334155", textTransform: "uppercase", textAlign: "right" }}>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {order.items?.map((item, idx) => (
+                                    <tr key={idx} style={{ 
+                                        borderBottom: "1px solid #f1f5f9",
+                                        backgroundColor: idx % 2 === 0 ? "#ffffff" : "#fcfdfd"
+                                    }}>
+                                        <td style={{ padding: "10px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textAlign: "center" }}>
+                                            {idx + 1}
+                                        </td>
+                                        <td style={{ padding: "10px 12px", textAlign: "left" }}>
+                                            <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a" }}>
+                                                {item.name || item.product?.name}
+                                            </div>
+                                            {item.variantSku && (
+                                                <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                                                    Variant: {item.variantSku}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: "10px 12px", fontSize: "12px", color: "#334155", fontWeight: "700", textAlign: "right" }}>
+                                            ₹{item.price}
+                                        </td>
+                                        <td style={{ padding: "10px 12px", fontSize: "12px", color: "#0f172a", fontWeight: "800", textAlign: "center" }}>
+                                            {item.quantity}
+                                        </td>
+                                        <td style={{ padding: "10px 12px", fontSize: "12px", fontWeight: "900", color: "#0f172a", textAlign: "right" }}>
+                                            ₹{item.price * item.quantity}
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {order.items.map((item, idx) => (
-                                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                            <td style={{ padding: "18px 20px" }}>
-                                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>{item.name}</div>
-                                                <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "4px" }}>Item Ref: {item.product?._id?.slice(-8).toUpperCase() || item._id?.slice(-8).toUpperCase()}</div>
-                                            </td>
-                                            <td align="center" style={{ padding: "18px 20px", fontSize: "13px", color: "#475569", fontWeight: "700" }}>₹{item.price}</td>
-                                            <td align="center" style={{ padding: "18px 20px", fontSize: "13px", color: "#475569", fontWeight: "800" }}>{item.quantity}</td>
-                                            <td align="right" style={{ padding: "18px 20px", fontSize: "14px", fontWeight: "900", color: "#0f172a" }}>₹{item.price * item.quantity}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
-                        {/* Totals Summary */}
-                        <table width="100%" cellPadding="0" cellSpacing="0" style={{ marginBottom: "60px" }}>
+                    {/* Totals Summary */}
+                    <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse", marginBottom: "24px" }}>
+                        <tbody>
                             <tr>
-                                <td width="50%" style={{ verticalAlign: "top" }}>
-                                    <div style={{ backgroundColor: "#f8fafc", padding: "25px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
-                                        <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "900", textTransform: "uppercase", marginBottom: "12px", letterSpacing: "1.5px" }}>Transaction Detail</div>
-                                        <div style={{ fontSize: "12px", color: "#475569", marginBottom: "8px" }}>Method: <b style={{ color: "#0f172a" }}>{order.paymentMode || order.payment?.method || 'CASH'}</b></div>
-                                        <div style={{ fontSize: "12px", color: "#475569" }}>Status: <b style={{ color: "#0f172a", textTransform: "uppercase" }}>{order.paymentStatus || order.payment?.status || 'PENDING'}</b></div>
+                                {/* Left: Notes & Sattvik Declaration */}
+                                <td width="50%" style={{ verticalAlign: "top", paddingRight: "16px" }}>
+                                    <div style={{ 
+                                        border: "1px solid #f1f5f9", 
+                                        borderRadius: "10px", 
+                                        padding: "14px 16px",
+                                        backgroundColor: "#f8fafc"
+                                    }}>
+                                        <div style={{ fontSize: "10px", fontWeight: "900", color: "#166534", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
+                                            Pure Jain Diet Assurance
+                                        </div>
+                                        <div style={{ fontSize: "11px", color: "#475569", lineHeight: "1.6" }}>
+                                            • 100% Shuddh Sattvik Preparation (छने पानी से निर्मित)<br />
+                                            • Strictly Zero Onion, Zero Garlic, Zero Underground Roots<br />
+                                            • Hygienically packed in certified food-grade material
+                                        </div>
+                                        <div style={{ borderTop: "1px solid #e2e8f0", marginTop: "10px", paddingTop: "8px", fontSize: "10px", color: "#64748b" }}>
+                                            Payment: <b>{order.paymentMode || order.payment?.method || 'ONLINE'}</b> • Status: <b style={{ textTransform: "uppercase", color: "#15803d" }}>{order.paymentStatus || order.payment?.status || 'CONFIRMED'}</b>
+                                        </div>
                                     </div>
                                 </td>
-                                <td width="10%"></td>
-                                <td width="40%" style={{ verticalAlign: "top" }}>
-                                    <table width="100%" cellPadding="8" cellSpacing="0">
-                                        <tr>
-                                            <td align="left" style={{ fontSize: "12px", color: "#64748b", fontWeight: "700" }}>Subtotal Aggregate</td>
-                                            <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>₹{order.pricing?.subtotal || 0}</td>
-                                        </tr>
-                                        <tr>
-                                            <td align="left" style={{ fontSize: "12px", color: "#64748b", fontWeight: "700" }}>Logistics Cost</td>
-                                            <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: "#2563eb" }}>+ ₹{order.pricing?.deliveryFee || 0}</td>
-                                        </tr>
-                                        <tr>
-                                            <td colSpan={2} style={{ padding: "12px 0" }}><div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div></td>
-                                        </tr>
-                                        <tr>
-                                            <td align="left" style={{ fontSize: "15px", fontWeight: "900", color: "#0f172a" }}>Grand Total</td>
-                                            <td align="right" style={{ fontSize: "24px", fontWeight: "900", color: "#2563eb" }}>₹{order.pricing?.total || 0}</td>
-                                        </tr>
-                                    </table>
+
+                                {/* Right: Calculations */}
+                                <td width="50%" style={{ verticalAlign: "top" }}>
+                                    <div style={{ 
+                                        border: "1px solid #e2e8f0", 
+                                        borderRadius: "10px", 
+                                        padding: "14px 16px",
+                                        backgroundColor: "#ffffff"
+                                    }}>
+                                        <table width="100%" cellPadding="0" cellSpacing="0" style={{ fontSize: "11px" }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: "4px 0", color: "#64748b", fontWeight: "600" }}>Items Subtotal</td>
+                                                    <td align="right" style={{ padding: "4px 0", fontWeight: "700", color: "#0f172a" }}>₹{order.pricing?.subtotal || 0}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: "4px 0", color: "#64748b", fontWeight: "600" }}>Delivery & Logistics</td>
+                                                    <td align="right" style={{ padding: "4px 0", fontWeight: "700", color: Number(order.pricing?.deliveryFee || 0) === 0 ? "#15803d" : "#0f172a" }}>
+                                                        {Number(order.pricing?.deliveryFee || 0) === 0 ? "FREE" : `+ ₹${order.pricing?.deliveryFee}`}
+                                                    </td>
+                                                </tr>
+                                                {Number(order.pricing?.handlingFee || 0) > 0 && (
+                                                    <tr>
+                                                        <td style={{ padding: "4px 0", color: "#64748b", fontWeight: "600" }}>Handling / Packaging</td>
+                                                        <td align="right" style={{ padding: "4px 0", fontWeight: "700", color: "#0f172a" }}>+ ₹{order.pricing?.handlingFee}</td>
+                                                    </tr>
+                                                )}
+                                                {Number(order.pricing?.tip || 0) > 0 && (
+                                                    <tr>
+                                                        <td style={{ padding: "4px 0", color: "#64748b", fontWeight: "600" }}>Delivery Tip</td>
+                                                        <td align="right" style={{ padding: "4px 0", fontWeight: "700", color: "#0f172a" }}>+ ₹{order.pricing?.tip}</td>
+                                                    </tr>
+                                                )}
+                                                {Number(order.discountTotal || order.pricing?.discount || 0) > 0 && (
+                                                    <tr>
+                                                        <td style={{ padding: "4px 0", color: "#15803d", fontWeight: "700" }}>Coupon / Discount</td>
+                                                        <td align="right" style={{ padding: "4px 0", fontWeight: "800", color: "#15803d" }}>- ₹{order.discountTotal || order.pricing?.discount}</td>
+                                                    </tr>
+                                                )}
+                                                {Number(order.walletAmount || 0) > 0 && (
+                                                    <tr>
+                                                        <td style={{ padding: "4px 0", color: "#15803d", fontWeight: "700" }}>Wallet Balance Used</td>
+                                                        <td align="right" style={{ padding: "4px 0", fontWeight: "800", color: "#15803d" }}>- ₹{order.walletAmount}</td>
+                                                    </tr>
+                                                )}
+                                                <tr>
+                                                    <td colSpan={2} style={{ padding: "8px 0" }}>
+                                                        <div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ fontSize: "13px", fontWeight: "900", color: "#0f172a" }}>Grand Total</td>
+                                                    <td align="right" style={{ fontSize: "18px", fontWeight: "900", color: "#15803d" }}>
+                                                        ₹{order.pricing?.total || 0}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </td>
                             </tr>
-                        </table>
+                        </tbody>
+                    </table>
 
-                        {/* Footer: Centered Verification */}
-                        <div style={{ marginTop: "auto", paddingTop: "40px", borderTop: "1px solid #f1f5f9", textAlign: "center" }}>
-                            <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "800", textTransform: "uppercase", letterSpacing: "3px" }}>
-                                Thank you for your business
-                            </div>
-                            <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "10px", fontWeight: "600" }}>
-                                This is a system-generated commercial invoice. No physical signature required.
-                            </div>
-                            <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "5px" }}>
-                                {settings?.appName || 'Noyo Kart'} • Customer Support: support@appzeto.com
-                            </div>
+                    {/* Footer: Centered Verification */}
+                    <div style={{ 
+                        borderTop: "1px solid #e2e8f0", 
+                        paddingTop: "16px", 
+                        textAlign: "center",
+                        fontSize: "10px",
+                        color: "#94a3b8",
+                        lineHeight: "1.6"
+                    }}>
+                        <div style={{ fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px" }}>
+                            Thank you for your order!
+                        </div>
+                        <div>
+                            This is a digitally generated commercial tax invoice. No physical signature required.
+                        </div>
+                        <div>
+                            {settings?.appName || 'Jain Aahar'} • Contact: {settings?.supportEmail || 'support@jainahar.com'} • Indore, Madhya Pradesh
                         </div>
                     </div>
                 </div>

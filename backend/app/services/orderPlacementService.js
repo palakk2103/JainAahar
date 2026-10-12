@@ -575,6 +575,19 @@ export async function placeOrderAtomic({
     }
 
     const isFullyPaidByWallet = walletAmount > 0 && Number(pricingSnapshot.aggregateBreakdown?.grandTotal || 0) === 0;
+
+    // Restrict Cash on Delivery (COD) to Indore & Shivpuri only
+    if (paymentMode === "COD" && !isFullyPaidByWallet) {
+      const isOutsideShiprocket = pricingSnapshot.aggregateBreakdown?.shippingRateSource === "shiprocket";
+      if (isOutsideShiprocket) {
+        const err = new Error(
+          "Cash on Delivery is only available for orders in Indore and Shivpuri. Please choose Online Payment.",
+        );
+        err.statusCode = 400;
+        err.code = "COD_NOT_AVAILABLE_FOR_LOCATION";
+        throw err;
+      }
+    }
     const checkoutGroupId = await generateUniqueCheckoutGroupId({ session });
     const checkoutReservation = computeStockReservationWindow(paymentMode);
     const checkoutGroup = new CheckoutGroup({

@@ -137,7 +137,7 @@ const CheckoutPage = () => {
 
   // State management
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("now");
-  const [selectedPayment, setSelectedPayment] = useState("cash");
+  const [selectedPayment, setSelectedPayment] = useState("online");
   const [selectedTip, setSelectedTip] = useState(0);
   const [showAllCartItems, setShowAllCartItems] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -283,20 +283,107 @@ const CheckoutPage = () => {
     }
   }, [cart.length === 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const paymentMethods = [
-    {
-      id: "online",
-      label: "Pay Online (PhonePe / UPI / Cards)",
-      icon: CreditCard,
-      sublabel: "UPI, Cards, NetBanking via PhonePe",
-    },
-    {
-      id: "cash",
-      label: "Cash on Delivery",
-      icon: Banknote,
-      sublabel: "Pay after delivery",
-    },
-  ];
+  // COD is available ONLY for delivery addresses in Indore and Shivpuri.
+  // For all users outside these cities, COD is hidden and only online payment is shown.
+  const isCodAvailable = useMemo(() => {
+    // 1. Authoritative check from pricing preview
+    if (pricingPreview?.shippingRateSource === "shiprocket") {
+      return false;
+    }
+    if (
+      pricingPreview?.shippingRateSource === "local_free" ||
+      pricingPreview?.isLocalDelivery === true
+    ) {
+      return true;
+    }
+
+    // 2. Active delivery address or recipient inspection
+    const activeAddr = savedRecipient || currentAddress;
+
+    const rawPincode =
+      activeAddr?.pincode ||
+      (typeof activeAddr?.completeAddress === "string"
+        ? activeAddr.completeAddress.match(/\b(\d{6})\b/)?.[1]
+        : null) ||
+      (typeof activeAddr?.address === "string"
+        ? activeAddr.address.match(/\b(\d{6})\b/)?.[1]
+        : null) ||
+      (typeof activeAddr?.city === "string"
+        ? activeAddr.city.match(/\b(\d{6})\b/)?.[1]
+        : null) ||
+      (!activeAddr ? currentLocation?.pincode : null) ||
+      "";
+
+    const cleanPin = String(rawPincode || "").trim();
+
+    // When a valid 6-digit PIN code is present, it is authoritative:
+    // 452 (Indore urban), 453 (Indore rural/district), 473 (Shivpuri district)
+    if (/^\d{6}$/.test(cleanPin)) {
+      const prefix = cleanPin.slice(0, 3);
+      return prefix === "452" || prefix === "453" || prefix === "473";
+    }
+
+    // 3. Check explicit city string
+    const rawCity =
+      activeAddr?.city ||
+      (!activeAddr ? currentLocation?.city : "") ||
+      "";
+    const cityLower = String(rawCity || "").toLowerCase().trim();
+
+    if (
+      cityLower.includes("indore") ||
+      cityLower.includes("shivpuri") ||
+      cityLower.includes("karera")
+    ) {
+      return true;
+    }
+
+    // 4. Check address text
+    const fullText = String(
+      (activeAddr?.completeAddress || activeAddr?.address || "") +
+        " " +
+        (activeAddr?.landmark || "")
+    ).toLowerCase();
+
+    if (
+      fullText.includes("indore") ||
+      fullText.includes("shivpuri") ||
+      fullText.includes("karera")
+    ) {
+      return true;
+    }
+
+    // 5. If user has entered an address that does not match Indore or Shivpuri
+    if (activeAddr && (activeAddr.address || activeAddr.completeAddress || activeAddr.city)) {
+      return false;
+    }
+
+    // 6. Default fallback
+    const defaultCity = String(currentLocation?.city || "").toLowerCase().trim();
+    return defaultCity.includes("indore") || defaultCity.includes("shivpuri");
+  }, [pricingPreview, savedRecipient, currentAddress, currentLocation]);
+
+  const paymentMethods = useMemo(() => {
+    const list = [
+      {
+        id: "online",
+        label: "Pay Online (PhonePe / UPI / Cards)",
+        icon: CreditCard,
+        sublabel: "UPI, Cards, NetBanking via PhonePe",
+      },
+    ];
+
+    if (isCodAvailable) {
+      list.push({
+        id: "cash",
+        label: "Cash on Delivery",
+        icon: Banknote,
+        sublabel: "Pay after delivery",
+      });
+    }
+
+    return list;
+  }, [isCodAvailable]);
 
   const tipAmounts = [
     { value: 0, label: "No Tip" },
@@ -1157,6 +1244,12 @@ const CheckoutPage = () => {
     if (!orderAddress || !orderAddress.address) {
       showToast("Please add or select a delivery address first", "error");
       handleOpenAddAddress();
+      return;
+    }
+
+    if (!isCodAvailable && selectedPayment === "cash") {
+      showToast("Cash on Delivery is only available in Indore and Shivpuri. Please choose Online Payment.", "error");
+      setSelectedPayment("online");
       return;
     }
 

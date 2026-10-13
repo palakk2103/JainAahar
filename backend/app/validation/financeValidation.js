@@ -57,6 +57,31 @@ export const checkoutPreviewSchema = Joi.object({
 
 export const createFinanceOrderSchema = checkoutPreviewSchema.keys({
   items: Joi.array().items(orderItemSchema).min(1).optional(),
+  address: Joi.object({
+    type: Joi.string().allow("", null).optional(),
+    name: Joi.string().trim().min(2).max(100).required().messages({
+      "string.empty": "Customer name is required in delivery address",
+      "any.required": "Customer name is required in delivery address",
+    }),
+    phone: Joi.string().trim().pattern(/^[0-9+\-\s]{10,15}$/).required().messages({
+      "string.empty": "Customer phone number is required in delivery address",
+      "any.required": "Customer phone number is required in delivery address",
+      "string.pattern.base": "Please provide a valid phone number",
+    }),
+    address: Joi.string().trim().min(3).required().messages({
+      "string.empty": "Delivery street address is required",
+      "any.required": "Delivery street address is required",
+    }),
+    city: Joi.string().trim().min(2).required().messages({
+      "string.empty": "City is required in delivery address",
+      "any.required": "City is required in delivery address",
+    }),
+    state: Joi.string().trim().allow("", null).optional(),
+    landmark: Joi.string().trim().allow("", null).optional(),
+    pincode: Joi.string().trim().allow("", null).optional(),
+    postalCode: Joi.string().trim().allow("", null).optional(),
+    location: locationSchema.optional(),
+  }).required(),
   paymentMode: Joi.string().valid("ONLINE", "COD").required(),
   walletAmount: Joi.number().min(0).default(0),
 });

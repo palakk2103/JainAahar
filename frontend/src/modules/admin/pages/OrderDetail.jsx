@@ -573,20 +573,22 @@ const OrderDetail = () => {
                             />
                             <div className="text-left">
                                 <h3 className="text-lg font-black text-slate-900 leading-tight">
-                                    {order.customer?.name}
+                                    {(order.customer?.name && order.customer.name.trim() !== '' && order.customer.name.trim().toLowerCase() !== 'customer')
+                                        ? order.customer.name
+                                        : (order.address?.name || order.customer?.name || 'Customer')}
                                 </h3>
                                 <p className="text-xs font-bold text-slate-400">
-                                    Node ID: {order.customer?._id}
+                                    Node ID: {order.customer?._id || 'N/A'}
                                 </p>
                             </div>
                         </div>
                         <div className="space-y-6 text-left mt-6">
                             <div className="flex flex-col gap-2">
                                 <span className="text-[10px] font-bold text-slate-400 flex items-center gap-3">
-                                    <Mail className="h-3.5 w-3.5" /> {order.customer?.email}
+                                    <Mail className="h-3.5 w-3.5" /> {order.customer?.email || 'N/A'}
                                 </span>
                                 <span className="text-[10px] font-bold text-slate-400 flex items-center gap-3">
-                                    <Phone className="h-3.5 w-3.5" /> {order.customer?.phone}
+                                    <Phone className="h-3.5 w-3.5" /> {order.customer?.phone || order.address?.phone || 'N/A'}
                                 </span>
                             </div>
                             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
@@ -614,7 +616,7 @@ const OrderDetail = () => {
                                         )}
                                 </div>
                                 <p className="text-xs font-bold text-slate-600 leading-relaxed italic">
-                                    "{order.address?.address}, {order.address?.landmark}, {order.address?.city}"
+                                    "{order.address?.name ? `${order.address.name}${order.address?.phone ? ` (${order.address.phone})` : ''} - ` : ''}{order.address?.address}, {order.address?.landmark ? `${order.address.landmark}, ` : ''}{order.address?.city}{order.address?.pincode ? ` - ${order.address.pincode}` : ''}"
                                 </p>
                             </div>
                             {order.address?.type === "Other" &&
@@ -785,11 +787,13 @@ const OrderDetail = () => {
                                                 padding: "3px 8px", 
                                                 borderRadius: "6px",
                                                 display: "inline-block",
-                                                backgroundColor: String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#ecfdf5" : "#fef3c7",
-                                                color: String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#065f46" : "#92400e",
-                                                border: `1px solid ${String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#a7f3d0" : "#fde68a"}`
+                                                backgroundColor: (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID") ? "#ecfdf5" : (String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#fff7ed" : "#fef3c7"),
+                                                color: (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID") ? "#065f46" : (String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#c2410c" : "#92400e"),
+                                                border: `1px solid ${(String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID") ? "#a7f3d0" : (String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#fed7aa" : "#fde68a")}`
                                             }}>
-                                                {String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "● Paid Online" : "● Cash On Delivery"}
+                                                {String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE"
+                                                    ? (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID" ? "● Paid Online" : "● Payment Pending")
+                                                    : "● Cash On Delivery"}
                                             </span>
                                         </div>
                                     </div>

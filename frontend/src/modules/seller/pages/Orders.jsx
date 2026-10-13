@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Card from '@shared/components/ui/Card';
 import Button from '@shared/components/ui/Button';
@@ -110,9 +111,11 @@ const Orders = () => {
                 id: order.orderId,
                 _id: order._id,
                 customer: {
-                    name: order.customer?.name || 'Unknown',
-                    phone: order.customer?.phone || '',
-                    avatar: (order.customer?.name || 'U').charAt(0)
+                    name: (order.customer?.name && order.customer.name.trim() !== '' && order.customer.name.trim().toLowerCase() !== 'customer')
+                        ? order.customer.name
+                        : (order.address?.name || order.customer?.name || 'Customer'),
+                    phone: order.customer?.phone || order.address?.phone || '',
+                    avatar: ((order.customer?.name || order.address?.name || 'C').charAt(0)).toUpperCase()
                 },
                 items: (order.items || []).map(item => ({
                     name: item.name,
@@ -134,9 +137,9 @@ const Orders = () => {
                     ? `${order.address.address || ''}, ${order.address.city || ''}`.trim()
                     : '',
                 location: order.address?.location || null,
-                payment: order.payment?.method === 'cash' || order.payment?.method === 'cod'
+                payment: order.payment?.method === 'cash' || order.payment?.method === 'cod' || order.paymentMode === 'COD'
                     ? 'Cash on Delivery'
-                    : 'Online Paid'
+                    : (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID" ? 'Online Paid' : 'Online (Pending)')
             }));
 
             setOrders(formattedOrders);

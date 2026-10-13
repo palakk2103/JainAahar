@@ -407,7 +407,10 @@ const CheckoutPage = () => {
       ? `${currentAddress.address}${currentAddress.landmark ? `, ${currentAddress.landmark}` : ""}${currentAddress.city ? `, ${currentAddress.city}` : ""}`
       : "";
 
-  const hasValidAddress = Boolean(savedRecipient?.completeAddress || currentAddress?.address);
+  const hasValidAddress = Boolean(
+    (savedRecipient?.completeAddress && savedRecipient?.name && savedRecipient?.phone) ||
+    (currentAddress?.address && currentAddress?.name && currentAddress.name.trim() !== "" && currentAddress.name.trim().toLowerCase() !== "unknown" && currentAddress?.phone && currentAddress.phone.replace(/[^0-9]/g, "").length >= 10)
+  );
 
   // Dynamic estimated delivery time based on distance from sellers
   const estimatedDeliveryTime = useMemo(() => {
@@ -688,20 +691,36 @@ const CheckoutPage = () => {
 
   // Save new address from modal - INSTANT & OPTIMISTIC
   const handleSaveNewAddress = () => {
-    const name = addAddressForm.name?.trim() || user?.name || "Customer";
-    const phone = addAddressForm.phone?.trim() || user?.phone || "";
+    const name = addAddressForm.name?.trim();
+    const phone = addAddressForm.phone?.trim();
     const address = addAddressForm.address?.trim();
     const landmark = addAddressForm.landmark?.trim() || "";
     const city = addAddressForm.city?.trim() || "";
     const state = addAddressForm.state?.trim() || "";
     const pincode = addAddressForm.pincode?.trim() || "";
 
-    if (!address) {
+    if (!name || name.length < 2) {
+      showToast("Please enter customer name (at least 2 characters)", "error");
+      return;
+    }
+
+    const cleanPhone = (phone || "").replace(/[^0-9]/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      showToast("Please enter a valid 10-digit mobile number", "error");
+      return;
+    }
+
+    if (!address || address.length < 5) {
       showToast("Please enter complete delivery address", "error");
       return;
     }
 
-    if (pincode && pincode.length !== 6) {
+    if (!city) {
+      showToast("Please enter your city", "error");
+      return;
+    }
+
+    if (!pincode || pincode.length !== 6) {
       showToast("Please enter a valid 6-digit PIN code (e.g. 560001)", "error");
       return;
     }
@@ -892,10 +911,14 @@ const CheckoutPage = () => {
 
   // Save edited address - INSTANT
   const handleSaveEditedAddress = () => {
-    if (!editAddressForm.address.trim()) {
-      showToast("Please enter an address", "error");
-      return;
-    }
+    const name = editAddressForm.name?.trim();
+    const phone = editAddressForm.phone?.trim();
+    const address = editAddressForm.address?.trim();
+    const landmark = editAddressForm.landmark?.trim() || "";
+    let editCity = (editAddressForm.city?.trim() || "")
+      .replace(/\s*-\s*\d{6}.*$/, "")
+      .replace(/[^a-zA-Z\s]/g, "")
+      .trim();
 
     const pinFromText =
       editAddressForm.pincode?.trim() ||
@@ -903,16 +926,41 @@ const CheckoutPage = () => {
       editAddressForm.city?.match(/\b(\d{6})\b/)?.[1] ||
       "";
 
-    let editCity = (editAddressForm.city?.trim() || "")
-      .replace(/\s*-\s*\d{6}.*$/, "")
-      .replace(/[^a-zA-Z\s]/g, "")
-      .trim();
+    if (!name || name.length < 2) {
+      showToast("Please enter customer name (at least 2 characters)", "error");
+      return;
+    }
+
+    const cleanPhone = (phone || "").replace(/[^0-9]/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      showToast("Please enter a valid 10-digit mobile number", "error");
+      return;
+    }
+
+    if (!address || address.length < 5) {
+      showToast("Please enter complete delivery address", "error");
+      return;
+    }
+
+    if (!editCity) {
+      showToast("Please enter your city", "error");
+      return;
+    }
+
+    if (!pinFromText || pinFromText.length !== 6) {
+      showToast("Please enter a valid 6-digit PIN code", "error");
+      return;
+    }
 
     const updated = {
       ...currentAddress,
       ...editAddressForm,
+      name,
+      phone: cleanPhone,
+      address,
+      landmark,
       city: editCity,
-      pincode: pinFromText || currentAddress?.pincode || "",
+      pincode: pinFromText,
     };
 
     // INSTANT UI UPDATE
@@ -1254,6 +1302,21 @@ const CheckoutPage = () => {
       return;
     }
 
+    const orderCustomerName = (orderAddress.name || "").trim();
+    const orderCustomerPhone = (orderAddress.phone || "").replace(/[^0-9]/g, "");
+
+    if (!orderCustomerName || orderCustomerName.toLowerCase() === "unknown" || orderCustomerName.length < 2) {
+      showToast("Please provide customer name in delivery address", "error");
+      handleOpenEditAddress();
+      return;
+    }
+
+    if (!orderCustomerPhone || orderCustomerPhone.length < 10) {
+      showToast("Please provide a valid 10-digit mobile number in delivery address", "error");
+      handleOpenEditAddress();
+      return;
+    }
+
     if (!isCodAvailable && selectedPayment === "cash") {
       showToast("Cash on Delivery is only available in Indore and Shivpuri. Please choose Online Payment.", "error");
       setSelectedPayment("online");
@@ -1319,7 +1382,6 @@ const CheckoutPage = () => {
 
             if (paymentData.redirectUrl) {
               setIsRedirectingToPayment(true);
-              clearCart();
               window.location.href = paymentData.redirectUrl;
               return;
             }
@@ -1332,9 +1394,8 @@ const CheckoutPage = () => {
               payError.response?.data?.message ||
               payError.response?.data?.error ||
               payError.message ||
-              "Order created but payment gateway failed. Please pay from order details.";
+              "Failed to initiate payment gateway. Please try again.";
             showToast(errorMsg, "error");
-            navigate(`/orders/${mainOrderId}`);
             return;
           }
         }
@@ -1662,7 +1723,7 @@ const CheckoutPage = () => {
               ) : (
                 <SlideToPay
                   amount={finalAmountToPay}
-                  onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
+                  onSuccess={hasValidAddress ? handlePlaceOrder : (currentAddress?.address ? handleOpenEditAddress : handleOpenAddAddress)}
                   isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
                   text={
                     !hasValidAddress
@@ -1715,7 +1776,7 @@ const CheckoutPage = () => {
           ) : (
             <SlideToPay
               amount={finalAmountToPay}
-              onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
+              onSuccess={hasValidAddress ? handlePlaceOrder : (currentAddress?.address ? handleOpenEditAddress : handleOpenAddAddress)}
               isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
               text={
                 !hasValidAddress
@@ -1928,7 +1989,7 @@ const CheckoutPage = () => {
             {/* City, State & Pincode */}
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">City</Label>
+                <Label className="text-xs font-semibold text-slate-700">City*</Label>
                 <Input
                   value={addAddressForm.city}
                   onChange={(e) => {
@@ -1949,11 +2010,11 @@ const CheckoutPage = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Pincode</Label>
+                <Label className="text-xs font-semibold text-slate-700">Pincode*</Label>
                 <Input
                   value={addAddressForm.pincode}
                   onChange={(e) => setAddAddressForm((p) => ({ ...p, pincode: e.target.value }))}
-                  placeholder="Pincode"
+                  placeholder="6-digit PIN"
                   className="h-10 rounded-xl"
                 />
               </div>
@@ -2019,7 +2080,7 @@ const CheckoutPage = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Contact Name</Label>
+                <Label className="text-xs font-semibold text-slate-700">Contact Name*</Label>
                 <Input
                   value={editAddressForm.name}
                   onChange={(e) => setEditAddressForm((p) => ({ ...p, name: e.target.value }))}
@@ -2028,11 +2089,11 @@ const CheckoutPage = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Phone</Label>
+                <Label className="text-xs font-semibold text-slate-700">Phone Number*</Label>
                 <Input
                   value={editAddressForm.phone}
                   onChange={(e) => setEditAddressForm((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="Phone"
+                  placeholder="10-digit Phone"
                   className="h-10 rounded-xl"
                 />
               </div>
@@ -2065,7 +2126,7 @@ const CheckoutPage = () => {
             {/* City, State & Pincode */}
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">City</Label>
+                <Label className="text-xs font-semibold text-slate-700">City*</Label>
                 <Input
                   value={editAddressForm.city}
                   onChange={(e) => {
@@ -2086,7 +2147,7 @@ const CheckoutPage = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Pincode</Label>
+                <Label className="text-xs font-semibold text-slate-700">Pincode*</Label>
                 <Input
                   value={editAddressForm.pincode}
                   onChange={(e) => setEditAddressForm((p) => ({ ...p, pincode: e.target.value }))}

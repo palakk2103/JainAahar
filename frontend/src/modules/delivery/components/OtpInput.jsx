@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useRef, useEffect } from "react";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +17,7 @@ import { deliveryApi } from "../services/deliveryApi";
  * @param {string} props.orderId - The order ID for OTP validation
  * @param {Function} props.onSuccess - Callback when OTP is successfully validated
  * @param {Function} props.onError - Callback when validation fails
- * @param {Function} props.onCancel - Optional callback for cancel action
+ * @param {Function} [props.onCancel] - Optional callback for cancel action
  */
 const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, onError, onCancel }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);

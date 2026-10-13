@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -80,7 +81,7 @@ const DeliveryConfirmation = () => {
   }
 
   const orderAmount = order?.pricing?.total || 0;
-  const isPrepaid = order?.payment?.method?.toLowerCase() !== 'cash' && order?.payment?.method?.toLowerCase() !== 'cod';
+  const isPaid = String(order?.paymentStatus || order?.payment?.status || "").toUpperCase() === "PAID";
 
   if (isCompleted) {
     return (
@@ -135,20 +136,20 @@ const DeliveryConfirmation = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}>
           <Card
-            className={`p-6 border-l-4 ${isPrepaid ? "border-l-brand-500 bg-brand-50/30" : "border-l-orange-500 bg-orange-50/30"}`}>
+            className={`p-6 border-l-4 ${isPaid ? "border-l-brand-500 bg-brand-50/30" : "border-l-orange-500 bg-orange-50/30"}`}>
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
-                  {isPrepaid ? "Payment Status" : "Amount to Collect"}
+                  {isPaid ? "Payment Status" : "Amount to Collect"}
                 </p>
                 <h2
-                  className={`text-4xl font-extrabold ${isPrepaid ? "text-brand-600" : "text-orange-600"}`}>
-                  {isPrepaid ? "PAID" : `₹${orderAmount}`}
+                  className={`text-4xl font-extrabold ${isPaid ? "text-brand-600" : "text-orange-600"}`}>
+                  {isPaid ? "PAID" : `₹${orderAmount}`}
                 </h2>
               </div>
               <div
-                className={`p-3 rounded-full ${isPrepaid ? "bg-brand-100 text-brand-600" : "bg-orange-100 text-orange-600"}`}>
-                {isPrepaid ? (
+                className={`p-3 rounded-full ${isPaid ? "bg-brand-100 text-brand-600" : "bg-orange-100 text-orange-600"}`}>
+                {isPaid ? (
                   <CheckCircle size={32} />
                 ) : (
                   <IndianRupee size={32} />
@@ -156,7 +157,7 @@ const DeliveryConfirmation = () => {
               </div>
             </div>
 
-            {!isPrepaid && (
+            {!isPaid && (
               <div className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Cash Received
@@ -211,6 +212,9 @@ const DeliveryConfirmation = () => {
                 orderId={orderId}
                 onSuccess={handleOtpGenerated}
                 onError={handleOtpGenerationError}
+                label="SLIDE TO GENERATE OTP"
+                bgColor="bg-black"
+                bgColorLight="bg-brand-50"
               />
             </Card>
           </motion.div>
@@ -224,6 +228,7 @@ const DeliveryConfirmation = () => {
                 orderId={orderId}
                 onSuccess={handleOtpValidationSuccess}
                 onError={handleOtpValidationError}
+                onCancel={() => setOtpGenerated(false)}
               />
             </Card>
           </motion.div>

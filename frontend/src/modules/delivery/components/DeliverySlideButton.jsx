@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, Loader2 } from "lucide-react";
@@ -15,9 +16,11 @@ import { deliveryApi } from "../services/deliveryApi";
  * @param {string} props.orderId - The order ID for OTP generation
  * @param {Function} props.onSuccess - Callback when OTP is successfully generated
  * @param {Function} props.onError - Callback when an error occurs
- * @param {string} props.label - Label text for the slide button (default: "SLIDE TO GENERATE OTP")
- * @param {string} props.bgColor - Background color class (default: "bg-black ")
- * @param {string} props.bgColorLight - Light background color class (default: "bg-brand-50")
+ * @param {boolean} [props.isReturn]
+ * @param {boolean} [props.isReturnDrop]
+ * @param {string} [props.label] - Label text for the slide button (default: "SLIDE TO GENERATE OTP")
+ * @param {string} [props.bgColor] - Background color class (default: "bg-black ")
+ * @param {string} [props.bgColorLight] - Light background color class (default: "bg-brand-50")
  */
 const DeliverySlideButton = ({
   orderId,

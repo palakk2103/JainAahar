@@ -398,6 +398,17 @@ export async function placeOrderAtomic({
     // we still need `user` further down for the legacy direct-debit path,
     // so we fetch both.
     const user = await User.findById(customerId).session(session);
+    if (user && normalizedAddress?.name && (!user.name || user.name.trim() === "" || user.name.trim().toLowerCase() === "customer")) {
+      user.name = normalizedAddress.name.trim();
+      if (!user.phone && normalizedAddress.phone) {
+        user.phone = normalizedAddress.phone.trim();
+      }
+      try {
+        await user.save({ session });
+      } catch (err) {
+        logger.warn("[placeOrderAtomic] Failed to sync user name/phone:", { error: err.message });
+      }
+    }
     if (walletAmount > 0) {
       if (!user) throw new Error("User not found");
       const canonicalBalance = await getCustomerBalance(customerId, { session });
@@ -896,21 +907,21 @@ export async function placeOrderAtomic({
     }
 
     // Auto-assign order to the best eligible warehouse and create WarehouseFulfillment
-    for (const order of orders) {
-      try {
-        await assignWarehouseToOrder({
-          orderId: order.orderId,
-          assignedBy: "system",
-        });
-      } catch (whAssignErr) {
-        logger.warn("[placeOrderAtomic] Auto warehouse assignment error:", {
-          orderId: order.orderId,
-          error: whAssignErr.message,
-        });
-      }
-    }
-
     if (shouldStartSellerWorkflow) {
+      for (const order of orders) {
+        try {
+          await assignWarehouseToOrder({
+            orderId: order.orderId,
+            assignedBy: "system",
+          });
+        } catch (whAssignErr) {
+          logger.warn("[placeOrderAtomic] Auto warehouse assignment error:", {
+            orderId: order.orderId,
+            error: whAssignErr.message,
+          });
+        }
+      }
+
       for (const order of orders) {
         void afterPlaceOrderV2(order).catch((error) => {
           logger.warn("[placeOrderAtomic] afterPlaceOrderV2 failed", {
@@ -919,51 +930,51 @@ export async function placeOrderAtomic({
           });
         });
       }
-    }
 
-    for (const order of orders) {
-      emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PLACED, {
-        orderId: order.orderId,
-        checkoutGroupId,
-        customerId,
-        userId: customerId,
-      });
-      if (order.seller || order.warehouseId) {
-        emitNotificationEvent(NOTIFICATION_EVENTS.NEW_ORDER, {
+      for (const order of orders) {
+        emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PLACED, {
           orderId: order.orderId,
           checkoutGroupId,
-          sellerId: order.seller || undefined,
-          warehouseId: order.warehouseId || undefined,
           customerId,
+          userId: customerId,
         });
-      }
-    }
-
-    // Order-confirmation SMS, fire-and-forget: the order is already committed,
-    // so a provider outage must never surface as a failed checkout.
-    void (async () => {
-      try {
-        if (!useRealSMS()) return;
-        const customer = await User.findById(customerId).select("phone").lean();
-        const phone = customer?.phone;
-        if (!phone) return;
-        for (const order of orders) {
-          await sendSmsIndiaHubOrderConfirmation({
-            phone,
+        if (order.seller || order.warehouseId) {
+          emitNotificationEvent(NOTIFICATION_EVENTS.NEW_ORDER, {
             orderId: order.orderId,
-          }).catch((error) => {
-            logger.warn("[placeOrderAtomic] Order confirmation SMS failed", {
-              orderId: order.orderId,
-              message: error.message,
-            });
+            checkoutGroupId,
+            sellerId: order.seller || undefined,
+            warehouseId: order.warehouseId || undefined,
+            customerId,
           });
         }
-      } catch (error) {
-        logger.warn("[placeOrderAtomic] Order confirmation SMS skipped", {
-          message: error.message,
-        });
       }
-    })();
+
+      // Order-confirmation SMS, fire-and-forget: the order is already committed,
+      // so a provider outage must never surface as a failed checkout.
+      void (async () => {
+        try {
+          if (!useRealSMS()) return;
+          const customer = await User.findById(customerId).select("phone").lean();
+          const phone = customer?.phone;
+          if (!phone) return;
+          for (const order of orders) {
+            await sendSmsIndiaHubOrderConfirmation({
+              phone,
+              orderId: order.orderId,
+            }).catch((error) => {
+              logger.warn("[placeOrderAtomic] Order confirmation SMS failed", {
+                orderId: order.orderId,
+                message: error.message,
+              });
+            });
+          }
+        } catch (error) {
+          logger.warn("[placeOrderAtomic] Order confirmation SMS skipped", {
+            message: error.message,
+          });
+        }
+      })();
+    }
 
     if (pendingLowStockAlerts.length > 0 && await isLowStockAlertsEnabled()) {
       pendingLowStockAlerts.forEach((alertPayload) => {

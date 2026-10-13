@@ -101,7 +101,10 @@ const OrdersList = () => {
                 const formatted = dbOrders.map(o => ({
                     id: o.orderId || 'UNSET',
                     _id: o._id,
-                    customer: o.customer?.name || 'Unknown',
+                    customer: (o.customer?.name && o.customer.name.trim() !== '' && o.customer.name.trim().toLowerCase() !== 'customer')
+                        ? o.customer.name
+                        : (o.address?.name || o.customer?.name || 'Customer'),
+                    customerPhone: o.address?.phone || o.customer?.phone || '',
                     seller: o.seller?.shopName || 'Unknown',
                     items: o.items?.length || 0,
                     amount: o.pricing?.total || 0,
@@ -186,6 +189,7 @@ const OrdersList = () => {
             const matchesSearch =
                 safeLower(order.id).includes(query) ||
                 safeLower(order.customer).includes(query) ||
+                safeLower(order.customerPhone).includes(query) ||
                 safeLower(order.seller).includes(query);
 
             const matchesStatus = adminRouteMatchesOrder(status, order);
@@ -403,9 +407,14 @@ const OrdersList = () => {
                                         </div>
                                     </td>
                                     <td className="px-4 py-5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-brand-500" />
-                                            <span className="text-xs font-black text-slate-700">{order.customer}</span>
+                                        <div className="flex flex-col text-left">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-brand-500 shrink-0" />
+                                                <span className="text-xs font-black text-slate-700">{order.customer}</span>
+                                            </div>
+                                            {order.customerPhone && (
+                                                <span className="text-[10px] font-bold text-slate-400 pl-4">{order.customerPhone}</span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-4 py-5" onClick={(e) => e.stopPropagation()}>

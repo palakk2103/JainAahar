@@ -186,10 +186,10 @@ function CheckoutPricingBreakdown({
               animate={{ opacity: 1, x: 0 }}
               className="flex justify-between items-center px-3 py-2 bg-brand-50 rounded-xl border border-brand-100">
               <span className="text-primary font-black text-xs flex items-center gap-2 uppercase tracking-wider">
-                <Tag size={14} />
-                Coupon Reserved
+                <Tag size={14} className="shrink-0" />
+                <span>Coupon Applied{selectedCoupon?.code ? ` (${selectedCoupon.code})` : ""}</span>
               </span>
-              <span className="font-black text-primary">-₹{discountAmount}</span>
+              <span className="font-black text-primary shrink-0">-₹{discountAmount}</span>
             </motion.div>
           )}
 

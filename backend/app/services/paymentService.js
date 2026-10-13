@@ -22,6 +22,10 @@ import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.const
 import logger from "./logger.js";
 import { reverseReferralRewardForOrder } from "./referralService.js";
 import { getActivePaymentProvider } from "./payment/providerRegistry.js";
+import User from "../models/customer.js";
+import { sendSmsIndiaHubOrderConfirmation } from "./smsIndiaHubService.js";
+import { useRealSMS } from "../utils/otp.js";
+import { assignWarehouseToOrder } from "./warehouseAssignmentService.js";
 
 const MAX_MERCHANT_ORDER_ID_LENGTH = 63;
 
@@ -369,6 +373,20 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
         },
       });
       await moveOrderToSellerPendingAfterPayment(order._id);
+
+      // Auto-assign order to the best eligible warehouse now that payment is captured
+      try {
+        await assignWarehouseToOrder({
+          orderId: order.orderId,
+          assignedBy: "system",
+        });
+      } catch (whAssignErr) {
+        logger.warn("[paymentCaptured] Auto warehouse assignment error:", {
+          orderId: order.orderId,
+          error: whAssignErr.message,
+        });
+      }
+
       emitNotificationEvent(NOTIFICATION_EVENTS.PAYMENT_SUCCESS, {
         orderId: order.orderId,
         checkoutGroupId: payment.checkoutGroupId,
@@ -379,8 +397,40 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
 
       emitNotificationEvent(NOTIFICATION_EVENTS.NEW_ORDER, {
         orderId: order.orderId,
+        checkoutGroupId: payment.checkoutGroupId,
         sellerId: order.seller,
+        customerId: order.customer,
       });
+
+      emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PLACED, {
+        orderId: order.orderId,
+        checkoutGroupId: payment.checkoutGroupId,
+        customerId: order.customer,
+        userId: order.customer,
+      });
+
+      // Send Order Confirmation SMS now that payment is captured
+      void (async () => {
+        try {
+          if (!useRealSMS()) return;
+          const customer = await User.findById(order.customer).select("phone").lean();
+          const phone = customer?.phone;
+          if (!phone) return;
+          await sendSmsIndiaHubOrderConfirmation({
+            phone,
+            orderId: order.orderId,
+          }).catch((error) => {
+            logger.warn("[paymentCaptured] Order confirmation SMS failed", {
+              orderId: order.orderId,
+              message: error.message,
+            });
+          });
+        } catch (error) {
+          logger.warn("[paymentCaptured] Order confirmation SMS skipped", {
+            message: error.message,
+          });
+        }
+      })();
     }
     await updateCheckoutGroupPaymentStatus(payment.checkoutGroupId, nextStatus);
     return;

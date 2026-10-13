@@ -394,11 +394,13 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                                         padding: "3px 8px", 
                                                         borderRadius: "6px",
                                                         display: "inline-block",
-                                                        backgroundColor: String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#ecfdf5" : "#fef3c7",
-                                                        color: String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#065f46" : "#92400e",
-                                                        border: `1px solid ${String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#a7f3d0" : "#fde68a"}`
+                                                        backgroundColor: (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID") ? "#ecfdf5" : (String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#fff7ed" : "#fef3c7"),
+                                                        color: (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID") ? "#065f46" : (String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#c2410c" : "#92400e"),
+                                                        border: `1px solid ${(String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID") ? "#a7f3d0" : (String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "#fed7aa" : "#fde68a")}`
                                                     }}>
-                                                        {String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE" ? "● Paid Online" : "● Cash On Delivery"}
+                                                        {String(order.paymentMode || order.payment?.method || "").toUpperCase() === "ONLINE"
+                                                            ? (String(order.paymentStatus || order.payment?.status || "").toUpperCase() === "PAID" ? "● Paid Online" : "● Payment Pending")
+                                                            : "● Cash On Delivery"}
                                                     </span>
                                                 </div>
                                             </div>

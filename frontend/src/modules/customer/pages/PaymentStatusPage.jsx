@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { customerApi } from "../services/customerApi";
 import { useAuth } from "@/core/context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { useToast } from "@shared/components/ui/Toast";
 import Button from "@shared/components/ui/Button";
 
@@ -25,6 +26,7 @@ const PaymentStatusPage = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { isAuthenticated } = useAuth();
+  const { clearCart } = useCart();
 
   const merchantOrderId = searchParams.get("merchantOrderId");
   const [status, setStatus] = useState("verifying"); // verifying, success, failure, timeout
@@ -55,6 +57,7 @@ const PaymentStatusPage = () => {
         if (paymentStatus === "CAPTURED") {
           setStatus("success");
           if (pollInterval.current) clearInterval(pollInterval.current);
+          clearCart();
 
           const isWallet = summary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-");
 

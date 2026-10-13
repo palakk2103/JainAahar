@@ -112,8 +112,14 @@ const OrdersList = () => {
                     workflowStatus: o.workflowStatus,
                     workflowVersion: o.workflowVersion,
                     returnStatus: o.returnStatus,
-                    date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                    payment: o.payment?.method === 'cod' ? 'COD' : 'Digital',
+                    payment:
+                        (o.paymentMode === 'COD' || o.payment?.method === 'cod')
+                            ? 'COD'
+                            : (String(o.paymentStatus || o.payment?.status || '').toUpperCase() === 'PAID')
+                            ? 'Digital (Paid)'
+                            : (String(o.paymentStatus || o.payment?.status || '').toUpperCase() === 'FAILED')
+                            ? 'Digital (Failed)'
+                            : 'Digital (Pending)',
                 }));
                 setOrders(formatted);
                 setSummary({

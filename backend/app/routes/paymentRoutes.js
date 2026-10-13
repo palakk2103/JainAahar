@@ -47,6 +47,13 @@ paymentRoute.get(
  * PhonePe Server-to-Server Webhook.
  * Auth: None (Internal verification via x-verify / authorization header)
  */
+paymentRoute.get("/webhook/phonepe", (req, res) => {
+  return res.status(200).json({
+    status: "ok",
+    message: "PhonePe webhook endpoint is active and listening for POST notifications",
+  });
+});
+
 paymentRoute.post(
   "/webhook/phonepe",
   express.raw({ type: "application/json" }), // SDK needs raw body for verification

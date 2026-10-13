@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 
 import Order from "../models/order.js";
+import Cart from "../models/cart.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
 import Payment from "../models/payment.js";
 import PaymentWebhookEvent from "../models/paymentWebhookEvent.js";
@@ -176,6 +177,14 @@ function validatePaymentEligibility(target, userId) {
       order.workflowStatus === WORKFLOW_STATUS.DELIVERED
     ) {
       const err = new Error("Payment is not allowed for delivered orders");
+      err.statusCode = 409;
+      throw err;
+    }
+    if (
+      order.status === "cancelled" ||
+      order.workflowStatus === WORKFLOW_STATUS.CANCELLED
+    ) {
+      const err = new Error("Payment is not allowed for cancelled orders");
       err.statusCode = 409;
       throw err;
     }
@@ -363,6 +372,20 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
   if (!orders.length) return;
 
   if (nextStatus === PAYMENT_STATUS.CAPTURED) {
+    if (payment.customer) {
+      try {
+        await Cart.updateOne(
+          { customerId: payment.customer },
+          { $set: { items: [] } }
+        );
+      } catch (cartErr) {
+        logger.warn("[paymentCaptured] Cart clear error:", {
+          customerId: payment.customer,
+          error: cartErr.message,
+        });
+      }
+    }
+
     for (const order of orders) {
       await handleOnlineOrderFinance(order._id, {
         actorId: null,
@@ -474,9 +497,7 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
         checkoutGroupId: payment.checkoutGroupId,
         customerId: order.customer,
         userId: order.customer,
-        sellerId: order.seller,
-        customerMessage: "Order was cancelled because payment failed.",
-        sellerMessage: `Order #${order.orderId} was cancelled because payment failed.`,
+        customerMessage: "Payment was not completed.",
       });
     }
     return;
@@ -1015,4 +1036,172 @@ export async function verifyClientPaymentCallback(data) {
     correlationId: data.correlationId,
   });
 }
+
+/**
+ * Initiate an automated PhonePe gateway refund for a cancelled/returned order.
+ *
+ * Safe & idempotent:
+ * - Checks if refund was already initiated (financeFlags.onlineRefundInitiated)
+ * - Finds the captured Payment record
+ * - Calls PhonePe SDK refund API
+ * - Records refundId and status on Payment and Order
+ */
+export async function refundPaymentForOrder(
+  orderOrId,
+  { reason = "Order cancelled", actorId = null, correlationId = null } = {},
+) {
+  try {
+    let order = orderOrId;
+    if (typeof order === "string" || mongoose.isObjectIdOrHexString(order)) {
+      order = await Order.findById(order);
+    }
+
+    if (!order) {
+      logger.warn("refundPaymentForOrder skipped: Order not found", { orderOrId });
+      return { skipped: true, reason: "Order not found" };
+    }
+
+    // Idempotency check: don't double refund
+    if (order.financeFlags?.onlineRefundInitiated) {
+      logger.info("refundPaymentForOrder skipped: Online refund already initiated", {
+        orderId: order.orderId,
+      });
+      return { skipped: true, reason: "Refund already initiated" };
+    }
+
+    // Only applicable for online/prepaid orders with captured payment
+    const isOnline = order.paymentMode === "ONLINE" || order.payment?.method === "online";
+    if (!isOnline && !order.financeFlags?.onlinePaymentCaptured) {
+      return { skipped: true, reason: "Order is not an online prepaid order" };
+    }
+
+    // Find the captured payment associated with this order
+    const paymentLookup = [
+      { order: order._id },
+      { orderIds: order._id },
+    ];
+    if (order.checkoutGroupId) {
+      paymentLookup.push({ checkoutGroupId: order.checkoutGroupId });
+    }
+
+    const payment = await Payment.findOne({
+      $or: paymentLookup,
+      status: { $in: [PAYMENT_STATUS.CAPTURED, PAYMENT_STATUS.PENDING] },
+    }).sort({ createdAt: -1 });
+
+    if (!payment) {
+      logger.warn("refundPaymentForOrder: No captured payment found for order", {
+        orderId: order.orderId,
+      });
+      return { skipped: true, reason: "No captured payment found" };
+    }
+
+    if (payment.status === PAYMENT_STATUS.REFUNDED) {
+      return { skipped: true, reason: "Payment already marked as refunded" };
+    }
+
+    // Calculate refund amount in paise
+    const totalRupees = Number(
+      order.paymentBreakdown?.grandTotal ??
+        order.pricing?.total ??
+        (payment.amount ? payment.amount / 100 : 0),
+    );
+    const amountPaise = Math.round(totalRupees * 100);
+
+    const availableToRefundPaise = Math.max(0, payment.amount - (payment.refundedAmount || 0));
+    const safeAmountPaise = Math.min(amountPaise, availableToRefundPaise);
+
+    if (safeAmountPaise <= 0) {
+      logger.warn("refundPaymentForOrder: Calculated refund amount is 0", {
+        orderId: order.orderId,
+        paymentId: payment._id,
+      });
+      return { skipped: true, reason: "Refund amount is 0" };
+    }
+
+    const provider = getActivePaymentProvider();
+    const cleanOrderId = sanitizeMerchantOrderIdPart(order.orderId || String(order._id));
+    const merchantRefundId = `REF-${cleanOrderId}-${Date.now()}`.slice(0, 63);
+
+    logger.info("Initiating PhonePe refund for cancelled order", {
+      orderId: order.orderId,
+      merchantOrderId: payment.gatewayOrderId,
+      merchantRefundId,
+      amountPaise: safeAmountPaise,
+    });
+
+    const refundResult = await provider.refundPayment({
+      originalMerchantOrderId: payment.gatewayOrderId,
+      amountPaise: safeAmountPaise,
+      merchantRefundId,
+    });
+
+    // Update Payment record
+    payment.refundedAmount = (payment.refundedAmount || 0) + safeAmountPaise;
+    payment.refundedAt = new Date();
+    if (payment.refundedAmount >= payment.amount) {
+      payment.status = PAYMENT_STATUS.REFUNDED;
+    }
+    payment.statusHistory.push({
+      fromStatus: PAYMENT_STATUS.CAPTURED,
+      toStatus: payment.status,
+      source: PAYMENT_EVENT_SOURCE.SYSTEM,
+      reason: reason || "Order cancelled",
+      changedAt: new Date(),
+    });
+    payment.rawGatewayResponse = {
+      ...(payment.rawGatewayResponse || {}),
+      lastRefund: refundResult,
+    };
+    await payment.save();
+
+    // Update Order record
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "financeFlags.onlineRefundInitiated": true,
+          "payment.status": "refunded",
+          "payment.refundId": refundResult.refundId || merchantRefundId,
+          "payment.refundStatus": refundResult.state || "INITIATED",
+          "payment.refundAmount": safeAmountPaise / 100,
+          "payment.refundedAt": new Date(),
+        },
+      },
+    );
+
+    emitNotificationEvent(NOTIFICATION_EVENTS.REFUND_COMPLETED, {
+      orderId: order.orderId,
+      customerId: order.customer,
+      userId: order.customer,
+      amount: safeAmountPaise / 100,
+      refundId: refundResult.refundId || merchantRefundId,
+    });
+
+    logger.info("PhonePe refund initiated successfully", {
+      orderId: order.orderId,
+      refundId: refundResult.refundId || merchantRefundId,
+      amountPaise: safeAmountPaise,
+    });
+
+    return {
+      success: true,
+      refundId: refundResult.refundId || merchantRefundId,
+      amount: safeAmountPaise / 100,
+      state: refundResult.state,
+    };
+  } catch (error) {
+    logger.error("refundPaymentForOrder failed", {
+      scope: "refundPaymentForOrder",
+      orderOrId: typeof orderOrId === "object" ? orderOrId?.orderId : orderOrId,
+      message: error?.message,
+      error,
+    });
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
 

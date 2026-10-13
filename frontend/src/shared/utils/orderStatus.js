@@ -52,9 +52,18 @@ function legacyFromWorkflow(workflowStatus) {
  */
 export function getLegacyStatusFromOrder(order) {
   if (!order) return "pending";
+
+  const pStatus = String(order.paymentStatus || order.payment?.status || "").toUpperCase();
+  const wStatus = String(order.workflowStatus || "").toUpperCase();
+  const oStatus = String(order.status || order.orderStatus || "").toLowerCase();
+
+  if (pStatus === "FAILED" || oStatus === "cancelled" || wStatus === WORKFLOW_STATUS.CANCELLED) {
+    return "cancelled";
+  }
+
   const v = Number(order.workflowVersion) || 0;
   if (v >= 2 && order.workflowStatus) {
-    const workflowStatus = String(order.workflowStatus).toUpperCase();
+    const workflowStatus = wStatus;
 
     if (workflowStatus === WORKFLOW_STATUS.OUT_FOR_DELIVERY) {
       return "out_for_delivery";

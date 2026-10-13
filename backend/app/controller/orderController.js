@@ -26,6 +26,7 @@ import {
   freezeFinancialSnapshot,
   reverseOrderFinanceOnCancellation,
 } from "../services/finance/orderFinanceService.js";
+import { refundPaymentForOrder } from "../services/paymentService.js";
 import {
   generateOrderPaymentBreakdown,
   hydrateOrderItems,
@@ -360,6 +361,20 @@ export const cancelOrder = async (req, res) => {
       }
     }
 
+    try {
+      await refundPaymentForOrder(order, {
+        actorId: customerId,
+        reason: reason || "Cancelled by customer before acceptance",
+      });
+    } catch (refundError) {
+      logger.warn("cancelOrder gateway refund failed", {
+        scope: "cancelOrder",
+        orderId: order.orderId,
+        customerId,
+        error: refundError.message,
+      });
+    }
+
     return handleResponse(res, 200, "Order cancelled successfully", order);
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -544,6 +559,19 @@ export const updateOrderStatus = async (req, res) => {
         userId: order.customer,
         sellerId: order.seller,
       });
+
+      try {
+        await refundPaymentForOrder(order, {
+          actorId: userId,
+          reason: `Cancelled by ${role}`,
+        });
+      } catch (refundError) {
+        logger.warn("updateOrderStatus gateway refund failed", {
+          scope: "updateOrderStatus",
+          orderId: canonicalOrderId,
+          error: refundError.message,
+        });
+      }
     }
 
     // Handle Confirmation/Delivery (Settle Transaction for Demo)

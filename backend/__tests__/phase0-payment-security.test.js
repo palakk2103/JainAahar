@@ -90,6 +90,14 @@ jest.unstable_mockModule("@phonepe-pg/pg-sdk-node", () => ({
       };
     }),
   },
+  RefundRequest: {
+    builder: jest.fn(() => ({
+      merchantRefundId() { return this; },
+      originalMerchantOrderId() { return this; },
+      amount() { return this; },
+      build() { return {}; },
+    })),
+  },
 }));
 
 const {

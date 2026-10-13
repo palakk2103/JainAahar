@@ -35,7 +35,7 @@ function CheckoutPricingBreakdown({
     pricingPreview?.shippingRateSource === "shiprocket"
       ? 99
       : (pricingPreview?.deliveryFeeCharged || 0);
-  const defaultHandlingFee = selectedPayment === "cash" ? 15 : 9;
+  const defaultHandlingFee = 0;
   const handlingFee =
     pricingPreview?.handlingFeeCharged != null
       ? Number(pricingPreview.handlingFeeCharged)
@@ -44,9 +44,9 @@ function CheckoutPricingBreakdown({
   const taxAmount = pricingPreview?.taxTotal || 0;
 
   const eligibleSubtotal = Number(pricingPreview?.productSubtotal ?? cartTotal ?? 0);
-  const isBelowMinOrder = eligibleSubtotal < MINIMUM_ORDER_VALUE;
+  const isBelowMinOrder = MINIMUM_ORDER_VALUE > 0 && eligibleSubtotal < MINIMUM_ORDER_VALUE;
   const remainingMinOrder = Math.max(0, MINIMUM_ORDER_VALUE - eligibleSubtotal);
-  const minOrderProgress = Math.min(100, Math.max(0, Math.round((eligibleSubtotal / MINIMUM_ORDER_VALUE) * 100)));
+  const minOrderProgress = Math.min(100, Math.max(0, Math.round((eligibleSubtotal / (MINIMUM_ORDER_VALUE || 1)) * 100)));
 
   return (
     <>
@@ -162,17 +162,19 @@ function CheckoutPricingBreakdown({
                 </span>
               </div>
             )}
-          <div className="flex justify-between items-center px-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
-                Handling Fee
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400">
-                ({selectedPayment === "cash" ? "COD" : "Online"})
-              </span>
+          {handlingFee > 0 && (
+            <div className="flex justify-between items-center px-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+                  Handling Fee
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  ({selectedPayment === "cash" ? "COD" : "Online"})
+                </span>
+              </div>
+              <span className="font-black text-slate-800">₹{handlingFee}</span>
             </div>
-            <span className="font-black text-slate-800">₹{handlingFee}</span>
-          </div>
+          )}
           <div className="flex justify-between items-center px-2">
             <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
               Tax

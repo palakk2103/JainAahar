@@ -1,5 +1,5 @@
 export const CURRENCY = "INR";
-export const MINIMUM_ORDER_VALUE = 499;
+export const MINIMUM_ORDER_VALUE = 0;
 
 export const PAYMENT_MODE = {
   ONLINE: "ONLINE",

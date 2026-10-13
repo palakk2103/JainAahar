@@ -10,9 +10,9 @@ const CartPage = ({ asOverlay = false, onClose }) => {
     const { cart, cartTotal } = useCart();
     const navigate = useNavigate();
 
-    const isBelowMinOrder = cartTotal < MINIMUM_ORDER_VALUE;
+    const isBelowMinOrder = MINIMUM_ORDER_VALUE > 0 && cartTotal < MINIMUM_ORDER_VALUE;
     const remainingAmount = Math.max(0, MINIMUM_ORDER_VALUE - cartTotal);
-    const progressPercentage = Math.min(100, Math.max(0, Math.round((cartTotal / MINIMUM_ORDER_VALUE) * 100)));
+    const progressPercentage = Math.min(100, Math.max(0, Math.round((cartTotal / (MINIMUM_ORDER_VALUE || 1)) * 100)));
 
     const hasOutOfStockItems = React.useMemo(() => {
         return cart.some(

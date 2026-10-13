@@ -180,7 +180,7 @@ const CheckoutPage = () => {
     return Number(pricingPreview?.productSubtotal ?? cartTotal ?? 0);
   }, [pricingPreview?.productSubtotal, cartTotal]);
 
-  const isBelowMinOrder = eligibleOrderAmount < MINIMUM_ORDER_VALUE;
+  const isBelowMinOrder = MINIMUM_ORDER_VALUE > 0 && eligibleOrderAmount < MINIMUM_ORDER_VALUE;
   const minOrderRemaining = Math.max(0, MINIMUM_ORDER_VALUE - eligibleOrderAmount);
 
   /**
@@ -369,7 +369,7 @@ const CheckoutPage = () => {
         id: "online",
         label: "Pay Online (PhonePe / UPI / Cards)",
         icon: CreditCard,
-        sublabel: "Handling Fee: ₹9 • UPI, Cards, NetBanking via PhonePe",
+        sublabel: "UPI, Cards, NetBanking via PhonePe",
       },
     ];
 
@@ -378,7 +378,7 @@ const CheckoutPage = () => {
         id: "cash",
         label: "Cash on Delivery",
         icon: Banknote,
-        sublabel: "Handling Fee: ₹15 • Pay after delivery",
+        sublabel: "Pay after delivery",
       });
     }
 
@@ -447,9 +447,7 @@ const CheckoutPage = () => {
   const fallbackHandlingFee =
     pricingPreview?.handlingFeeCharged != null
       ? Number(pricingPreview.handlingFeeCharged)
-      : selectedPayment === "cash"
-      ? 15
-      : 9;
+      : 0;
 
   const grossOrderTotal = Number(
     pricingPreview?.grandTotal != null

@@ -198,16 +198,49 @@ function allocateCheckoutTipToSellerBreakdowns(
 }
 
 export function getHandlingFeeByPaymentMode(paymentMode = "COD") {
-  return 0;
+  const mode = String(paymentMode || "COD").trim().toUpperCase();
+  const isCod = mode === "COD" || mode === "CASH";
+  return isCod ? 15 : 9;
 }
 
 async function computeGlobalHandlingFeeForCheckout(
   hydratedItems = [],
   { session = null, paymentMode = "COD" } = {},
 ) {
+  const headerIds = Array.from(
+    new Set(hydratedItems.map((item) => String(item?.headerCategoryId || "")).filter(Boolean)),
+  );
+  let categoryHandlingFee = 0;
+  let categoryUsed = null;
+
+  if (headerIds.length > 0) {
+    const categoryQuery = Category.find({ _id: { $in: headerIds } })
+      .select("_id name handlingFees handlingFeeType handlingFeeValue")
+      .lean();
+    if (session) categoryQuery.session(session);
+    const categories = await categoryQuery;
+    const categoryById = new Map(categories.map((category) => [String(category._id), category]));
+
+    const handling = calculateHandlingFee(hydratedItems, {
+      handlingFeeStrategy: HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
+      categoryById,
+    });
+    categoryHandlingFee = Number(handling.handlingFeeCharged || 0);
+    categoryUsed = handling.handlingCategoryUsed || null;
+  }
+
+  const paymentModeFee = getHandlingFeeByPaymentMode(paymentMode);
+  // Platform rule: COD handling fee = ₹15, Online handling fee = ₹9 for all customers/cities.
+  const handlingFeeCharged = categoryHandlingFee > 0 ? Math.max(categoryHandlingFee, paymentModeFee) : paymentModeFee;
+  const isCod = paymentModeFee === 15;
+
   return {
-    handlingFeeCharged: 0,
-    handlingCategoryUsed: null,
+    handlingFeeCharged,
+    handlingCategoryUsed: categoryUsed || {
+      categoryName: isCod ? "Cash on Delivery Handling Fee" : "Online Payment Handling Fee",
+      handlingFeeType: "fixed",
+      handlingFeeValue: handlingFeeCharged,
+    },
   };
 }
 

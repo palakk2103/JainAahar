@@ -82,6 +82,11 @@ export function buildSellerOrdersQuery({
   const withStatus = {
     ...base,
     ...normalizeSellerStatusFilter(statusParam),
+    // Exclude online orders where payment failed or was never completed (never placed)
+    $nor: [
+      { paymentMode: "ONLINE", paymentStatus: { $in: ["CREATED", "FAILED"] } },
+      { "payment.method": "online", "payment.status": { $in: ["pending", "failed"] } },
+    ],
   };
   return appendDateRange(withStatus, { startDate, endDate });
 }
@@ -408,8 +413,15 @@ export async function getCustomerOrders(customerId, pagination) {
   return getOrSet(
     cacheKey,
     async () => {
+      const customerQuery = {
+        customer: customerId,
+        $nor: [
+          { paymentMode: "ONLINE", paymentStatus: { $in: ["CREATED", "FAILED"] } },
+          { "payment.method": "online", "payment.status": { $in: ["pending", "failed"] } },
+        ],
+      };
       const [orders, total] = await Promise.all([
-        Order.find({ customer: customerId })
+        Order.find(customerQuery)
           .select(
             "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion returnStatus timeSlot createdAt",
           )
@@ -418,7 +430,7 @@ export async function getCustomerOrders(customerId, pagination) {
           .limit(limit)
           .populate("items.product", "name mainImage price salePrice")
           .lean(),
-        Order.countDocuments({ customer: customerId }),
+        Order.countDocuments(customerQuery),
       ]);
 
       return {

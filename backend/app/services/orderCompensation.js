@@ -6,6 +6,7 @@ import { releaseReservedStockForOrder } from "./stockService.js";
 import { releaseWarehouseStockReservation } from "./warehouseInventoryService.js";
 import { clearOrderTracking } from "./firebaseService.js";
 import { reverseOrderFinanceOnCancellation } from "./finance/orderFinanceService.js";
+import { refundPaymentForOrder } from "./paymentService.js";
 import logger from "./logger.js";
 
 /**
@@ -123,6 +124,20 @@ export async function compensateOrderCancellation(order, orderIdString, opts = {
         error: financeError?.message,
       });
     }
+  }
+
+  // Automatic PhonePe gateway refund to original payment source (UPI/Cards/Netbanking)
+  try {
+    await refundPaymentForOrder(existing, {
+      actorId,
+      reason,
+    });
+  } catch (refundError) {
+    logger.warn?.("compensateOrderCancellation gateway refund failed", {
+      scope: "compensateOrderCancellation",
+      orderId: existing.orderId || orderIdString,
+      error: refundError?.message,
+    });
   }
 
   // Fire-and-forget cleanup of realtime tracking nodes. Mongo state is

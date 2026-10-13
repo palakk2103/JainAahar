@@ -148,11 +148,72 @@ function calculateHandlingForCategory({ type, value }, categorySubtotal) {
 }
 
 export function calculateHandlingFee(cartItems, options = {}) {
+  const {
+    handlingFeeStrategy = HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
+    categoryById = new Map(),
+  } = options;
+
+  const categorySubtotalMap = new Map();
+  for (const item of cartItems) {
+    const headerId = toObjectIdString(item.headerCategoryId);
+    const itemSubtotal = roundCurrency(normalizeLinePrice(item.price) * normalizeLineQuantity(item.quantity));
+    categorySubtotalMap.set(headerId, addMoney(categorySubtotalMap.get(headerId) || 0, itemSubtotal));
+  }
+
+  const categoryFees = [];
+  for (const [headerId, subtotal] of categorySubtotalMap.entries()) {
+    const category = categoryById.get(headerId);
+    const handling = resolveHandlingConfig(category);
+    const fee = calculateHandlingForCategory(handling, subtotal);
+    categoryFees.push({
+      headerCategoryId: headerId || null,
+      categoryName: category?.name || "Unknown",
+      subtotal,
+      handlingFeeType: handling.type,
+      handlingFeeValue: handling.value,
+      computedFee: roundCurrency(fee),
+    });
+  }
+
+  let totalHandlingFee = 0;
+  let handlingCategoryUsed = null;
+
+  if (categoryFees.length === 0) {
+    totalHandlingFee = 0;
+  } else if (handlingFeeStrategy === HANDLING_FEE_STRATEGY.SUM_OF_CATEGORY_FEES) {
+    totalHandlingFee = categoryFees.reduce((sum, row) => addMoney(sum, row.computedFee), 0);
+  } else if (handlingFeeStrategy === HANDLING_FEE_STRATEGY.PER_ITEM_FEE) {
+    totalHandlingFee = cartItems.reduce((sum, item) => {
+      const headerId = toObjectIdString(item.headerCategoryId);
+      const category = categoryById.get(headerId);
+      const handling = resolveHandlingConfig(category);
+      const quantity = normalizeLineQuantity(item.quantity);
+      const itemSubtotal = roundCurrency(normalizeLinePrice(item.price) * quantity);
+      const perLine =
+        handling.type === HANDLING_FEE_TYPE.FIXED
+          ? roundCurrency(handling.value * quantity)
+          : calculateHandlingForCategory(handling, itemSubtotal);
+      return addMoney(sum, perLine);
+    }, 0);
+  } else {
+    const maxCategory = categoryFees.reduce((best, row) =>
+      row.computedFee > (best?.computedFee || 0) ? row : best,
+    );
+    totalHandlingFee = roundCurrency(maxCategory?.computedFee || 0);
+    handlingCategoryUsed = maxCategory || null;
+  }
+
+  if (!handlingCategoryUsed && categoryFees.length > 0) {
+    handlingCategoryUsed = categoryFees
+      .slice()
+      .sort((a, b) => b.computedFee - a.computedFee)[0];
+  }
+
   return {
-    handlingFeeCharged: 0,
-    handlingFeeStrategy: options.handlingFeeStrategy || HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
-    handlingCategoryUsed: null,
-    categoryFees: [],
+    handlingFeeCharged: roundCurrency(totalHandlingFee),
+    handlingFeeStrategy,
+    handlingCategoryUsed,
+    categoryFees,
   };
 }
 

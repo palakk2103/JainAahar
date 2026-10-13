@@ -45,6 +45,10 @@ export class PaymentProviderPort {
     throw new Error("getPaymentStatus must be implemented");
   }
 
+  async refundPayment(_args) {
+    throw new Error("refundPayment must be implemented");
+  }
+
   async validateWebhook(_args) {
     throw new Error("validateWebhook must be implemented");
   }

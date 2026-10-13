@@ -10,12 +10,15 @@
  */
 
 import crypto from "crypto";
-import {
+import * as PhonePeSDK from "@phonepe-pg/pg-sdk-node";
+const {
   StandardCheckoutClient,
   Env,
   StandardCheckoutPayRequest,
-} from "@phonepe-pg/pg-sdk-node";
+  RefundRequest,
+} = PhonePeSDK;
 
+import logger from "../../logger.js";
 import { PAYMENT_STATUS, PAYMENT_GATEWAY } from "../../../constants/payment.js";
 import { PaymentProviderPort } from "../ports/paymentProviderPort.js";
 
@@ -80,23 +83,76 @@ export class PhonePeAdapter extends PaymentProviderPort {
 
   async getPaymentStatus({ merchantOrderId }) {
     const client = getPhonePeClient();
-    const response = await client.getOrderStatus(merchantOrderId);
-    const lastPayment =
-      Array.isArray(response.paymentDetails) && response.paymentDetails.length > 0
-        ? response.paymentDetails[response.paymentDetails.length - 1]
-        : null;
+    try {
+      const response = await client.getOrderStatus(merchantOrderId);
+      const lastPayment =
+        Array.isArray(response.paymentDetails) && response.paymentDetails.length > 0
+          ? response.paymentDetails[response.paymentDetails.length - 1]
+          : null;
 
-    const transactionId =
-      lastPayment?.transactionId || response.transactionId || response.orderId || null;
-    const responseCode =
-      response.errorCode || response.detailedErrorCode || response.responseCode || response.state;
+      const transactionId =
+        lastPayment?.transactionId || response.transactionId || response.orderId || null;
+      const responseCode =
+        response.errorCode || response.detailedErrorCode || response.responseCode || response.state;
 
-    return {
-      state: response.state,
-      transactionId,
-      responseCode,
-      gatewayResponse: response,
-    };
+      return {
+        state: response.state,
+        transactionId,
+        responseCode,
+        gatewayResponse: response,
+      };
+    } catch (error) {
+      logger.warn("PhonePe getOrderStatus error", {
+        merchantOrderId,
+        error: error?.message,
+        data: error?.response?.data,
+      });
+      const gatewayState =
+        error?.response?.data?.state ||
+        error?.response?.data?.code ||
+        error?.response?.data?.data?.state ||
+        "FAILED";
+      return {
+        state: gatewayState,
+        transactionId: null,
+        responseCode: error?.message || "GATEWAY_ERROR",
+        gatewayResponse: error?.response?.data || null,
+      };
+    }
+  }
+
+  async refundPayment({ originalMerchantOrderId, amountPaise, merchantRefundId }) {
+    const client = getPhonePeClient();
+    const refundId =
+      merchantRefundId ||
+      `REF_${Date.now()}_${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+
+    try {
+      const request = RefundRequest.builder()
+        .merchantRefundId(refundId)
+        .originalMerchantOrderId(originalMerchantOrderId)
+        .amount(amountPaise)
+        .build();
+
+      const response = await client.refund(request);
+      return {
+        success: true,
+        merchantRefundId: refundId,
+        refundId: response?.refundId || refundId,
+        state: response?.state || "COMPLETED",
+        amount: response?.amount || amountPaise,
+        gatewayResponse: response,
+      };
+    } catch (error) {
+      logger.error("PhonePe refund failed", {
+        scope: "PhonePeAdapter.refundPayment",
+        originalMerchantOrderId,
+        refundId,
+        amountPaise,
+        message: error?.message,
+      });
+      throw error;
+    }
   }
 
   async validateWebhook({ rawBody, authorization }) {
@@ -189,14 +245,28 @@ export class PhonePeAdapter extends PaymentProviderPort {
     if (
       normalized === "FAILED" ||
       normalized === "FAILURE" ||
-      normalized === "PG_ORDER_FAILED"
+      normalized === "PG_ORDER_FAILED" ||
+      normalized === "CANCELLED" ||
+      normalized === "USER_CANCELLED" ||
+      normalized === "DECLINED" ||
+      normalized === "TIMED_OUT" ||
+      normalized === "EXPIRED" ||
+      normalized === "PAYMENT_ERROR" ||
+      normalized === "TRANSACTION_NOT_FOUND" ||
+      normalized === "BAD_REQUEST" ||
+      normalized === "AUTHORIZATION_FAILED" ||
+      normalized === "PAYMENT_DECLINED" ||
+      normalized === "PAYMENT_CANCELLED" ||
+      normalized === "ORDER_FAILED"
     ) {
       return PAYMENT_STATUS.FAILED;
     }
     if (
       normalized === "PENDING" ||
       normalized === "CREATED" ||
-      normalized === "ATTEMPTED"
+      normalized === "ATTEMPTED" ||
+      normalized === "WAITING_FOR_PAYMENT" ||
+      normalized === "PAYMENT_PENDING"
     ) {
       return PAYMENT_STATUS.PENDING;
     }

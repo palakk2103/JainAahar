@@ -818,13 +818,18 @@ export async function placeOrderAtomic({
       await Transaction.create(transactionRows, { session, ordered: true });
     }
 
-    await consumeCartItems({
-      customerId,
-      source: resolvedSource || source,
-      orderItemsInput,
-      session,
-      cartDocument,
-    });
+    // For COD and Wallet orders, payment is confirmed immediately, so consume cart items.
+    // For ONLINE orders requiring payment gateway, keep the cart intact until payment is CAPTURED.
+    // If payment fails or is cancelled, customer returns to checkout with all products preserved.
+    if (paymentMode !== "ONLINE" || isFullyPaidByWallet) {
+      await consumeCartItems({
+        customerId,
+        source: resolvedSource || source,
+        orderItemsInput,
+        session,
+        cartDocument,
+      });
+    }
 
     // Audit Phase 5 (M-3): atomic, usage-limit-aware coupon increment
     // INSIDE the transaction. When SERVER_SIDE_COUPON_ENGINE is on, the

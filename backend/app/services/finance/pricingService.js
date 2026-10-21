@@ -322,7 +322,7 @@ export async function hydrateOrderItems(
 
   const productQuery = Product.find({ _id: { $in: productIds } })
     .select(
-      "_id name salePrice price mainImage headerId sellerId warehouseId status approvalStatus variants shippingWeight shippingLength shippingBreadth shippingHeight",
+      "_id name salePrice price mainImage headerId sellerId warehouseId status approvalStatus variants shippingWeight shippingLength shippingBreadth shippingHeight weight",
     )
     .lean();
   if (session) productQuery.session(session);
@@ -379,6 +379,7 @@ export async function hydrateOrderItems(
       quantity,
       price: inferredUnitPrice,
       image: item.image || product.mainImage,
+      weight: resolvedVariant ? String(resolvedVariant?.name || "").trim() : (product.weight || ""),
       headerCategoryId: String(product.headerId),
       ...(product.sellerId ? { sellerId: String(product.sellerId) } : {}),
       ...(product.warehouseId ? { warehouseId: String(product.warehouseId) } : {}),

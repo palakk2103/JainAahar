@@ -8,6 +8,7 @@ import DeliveryOtpDisplay from "../components/DeliveryOtpDisplay";
 import OrderProgressTracker from "../components/order/OrderProgressTracker";
 import ReturnProgressTracker from "../components/order/ReturnProgressTracker";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { formatWeight } from "@/core/utils/formatUtils";
 import {
   ChevronLeft,
   Package,
@@ -977,7 +978,7 @@ const OrderDetailPage = () => {
                     {item.name}
                   </h4>
                   <p className="text-slate-500 text-xs font-medium">
-                    Qty: {item.quantity}
+                    Qty: {item.quantity}{(item.weight || item.variantName || item.product?.weight) ? ` • ${formatWeight(item.weight || item.variantName || item.product?.weight, "")}` : ""}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Coupon from "../models/coupon.js";
 import handleResponse from "../utils/helper.js";
 import Order from "../models/order.js";
@@ -10,27 +11,35 @@ import { hydrateOrderItems } from "../services/finance/pricingService.js";
 export const listCoupons = async (req, res) => {
     try {
         const { status, search } = req.query;
-        const query = {};
+        const conditions = [];
 
         if (status === "active") {
             const now = new Date();
-            query.isActive = true;
-            query.validFrom = { $lte: now };
-            query.validTill = { $gte: now };
+            conditions.push({
+                isActive: true,
+                validFrom: { $lte: now },
+                validTill: { $gte: now },
+            });
         } else if (status === "expired") {
-            query.$or = [{ isActive: false }, { validTill: { $lt: new Date() } }];
+            conditions.push({
+                $or: [{ isActive: false }, { validTill: { $lt: new Date() } }],
+            });
         }
 
         if (search) {
             const term = search.trim();
             // P3-5: substring search preserved; user input is regex-escaped.
             const safe = buildSearchRegex(term, { anchored: false });
-            query.$or = [
-                { code: safe },
-                { title: safe },
-                { description: safe },
-            ];
+            conditions.push({
+                $or: [
+                    { code: safe },
+                    { title: safe },
+                    { description: safe },
+                ],
+            });
         }
+
+        const query = conditions.length > 0 ? { $and: conditions } : {};
 
         const coupons = await Coupon.find(query).sort({ createdAt: -1 }).lean();
         return handleResponse(res, 200, "Coupons fetched successfully", coupons);
@@ -55,6 +64,9 @@ export const createCoupon = async (req, res) => {
 export const updateCoupon = async (req, res) => {
     try {
         const { id } = req.params;
+        if (!id || id === "undefined" || !mongoose.Types.ObjectId.isValid(id)) {
+            return handleResponse(res, 400, "Invalid coupon ID");
+        }
         const data = { ...req.body };
         const coupon = await Coupon.findByIdAndUpdate(id, data, {
             new: true,
@@ -72,7 +84,13 @@ export const updateCoupon = async (req, res) => {
 export const deleteCoupon = async (req, res) => {
     try {
         const { id } = req.params;
-        await Coupon.findByIdAndDelete(id);
+        if (!id || id === "undefined" || !mongoose.Types.ObjectId.isValid(id)) {
+            return handleResponse(res, 400, "Invalid coupon ID");
+        }
+        const coupon = await Coupon.findByIdAndDelete(id);
+        if (!coupon) {
+            return handleResponse(res, 404, "Coupon not found");
+        }
         return handleResponse(res, 200, "Coupon deleted successfully");
     } catch (error) {
         return handleResponse(res, 500, error.message);

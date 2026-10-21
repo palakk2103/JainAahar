@@ -16,7 +16,8 @@ import {
     HiOutlineClock,
     HiOutlineCheckCircle,
     HiOutlineXMark,
-    HiOutlineEye
+    HiOutlineEye,
+    HiOutlinePower,
 } from 'react-icons/hi2';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,12 +26,14 @@ import { adminApi } from '../services/adminApi';
 const CouponManagement = () => {
     const { showToast } = useToast();
     const today = new Date().toISOString().split('T')[0];
+    const defaultEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [editingCoupon, setEditingCoupon] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [isLoading, setIsLoading] = useState(false);
+    const [togglingId, setTogglingId] = useState(null);
 
     const [coupons, setCoupons] = useState([]);
 
@@ -44,9 +47,10 @@ const CouponManagement = () => {
         maxDiscount: '',
         usageLimit: '',
         perUserLimit: '1',
-        validFrom: '',
-        validTill: '',
+        validFrom: today,
+        validTill: defaultEndDate,
         description: '',
+        isActive: true,
     });
 
     useEffect(() => {
@@ -84,7 +88,7 @@ const CouponManagement = () => {
         const expiringSoon = coupons.filter(c => {
             if (!c.validTill) return false;
             const till = new Date(c.validTill);
-            const diffDays = (till - now) / (1000 * 60 * 60 * 24);
+            const diffDays = (till.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
             return diffDays >= 0 && diffDays <= 7;
         });
         return {
@@ -96,6 +100,44 @@ const CouponManagement = () => {
     }, [coupons]);
 
     const filteredCoupons = coupons;
+
+    const getCouponStatusInfo = (c) => {
+        if (!c.isActive) {
+            return {
+                label: 'Inactive',
+                color: 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200',
+                dot: 'bg-slate-400',
+                tooltip: 'Deactivated — click to activate'
+            };
+        }
+        const now = new Date();
+        const from = c.validFrom ? new Date(c.validFrom) : null;
+        const till = c.validTill ? new Date(c.validTill) : null;
+
+        if (from && from > now) {
+            const fromStr = from.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+            return {
+                label: `Upcoming (${fromStr})`,
+                color: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+                dot: 'bg-amber-500',
+                tooltip: `Scheduled to start on ${from.toLocaleDateString('en-GB')} — not visible in customer app until this date!`
+            };
+        }
+        if (till && till < now) {
+            return {
+                label: 'Expired',
+                color: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+                dot: 'bg-rose-500',
+                tooltip: 'Coupon validity has ended'
+            };
+        }
+        return {
+            label: 'Active',
+            color: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+            dot: 'bg-emerald-500 animate-pulse',
+            tooltip: 'Live now — visible to customers'
+        };
+    };
 
     const handleOpenModal = (coupon = null) => {
         if (coupon) {
@@ -110,9 +152,10 @@ const CouponManagement = () => {
                 maxDiscount: coupon.maxDiscount ?? '',
                 usageLimit: coupon.usageLimit ?? '',
                 perUserLimit: coupon.perUserLimit ?? '1',
-                validFrom: coupon.validFrom ? coupon.validFrom.substring(0, 10) : '',
-                validTill: coupon.validTill ? coupon.validTill.substring(0, 10) : '',
+                validFrom: coupon.validFrom ? coupon.validFrom.substring(0, 10) : today,
+                validTill: coupon.validTill ? coupon.validTill.substring(0, 10) : defaultEndDate,
                 description: coupon.description || '',
+                isActive: coupon.isActive !== undefined ? coupon.isActive : true,
             });
         } else {
             setEditingCoupon(null);
@@ -126,12 +169,29 @@ const CouponManagement = () => {
                 maxDiscount: '',
                 usageLimit: '',
                 perUserLimit: '1',
-                validFrom: '',
-                validTill: '',
+                validFrom: today,
+                validTill: defaultEndDate,
                 description: '',
+                isActive: true,
             });
         }
         setIsModalOpen(true);
+    };
+
+    const handleToggleStatus = async (coupon) => {
+        const id = coupon._id || coupon.id;
+        if (!id) return;
+        try {
+            setTogglingId(id);
+            const newStatus = !coupon.isActive;
+            await adminApi.updateCoupon(id, { isActive: newStatus });
+            setCoupons(prev => prev.map(c => ((c._id === id || c.id === id) ? { ...c, isActive: newStatus } : c)));
+            showToast(`Coupon "${coupon.code}" ${newStatus ? 'activated' : 'deactivated'} successfully`, 'success');
+        } catch (error) {
+            showToast(error.response?.data?.message || 'Failed to update coupon status', 'error');
+        } finally {
+            setTogglingId(null);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -146,6 +206,7 @@ const CouponManagement = () => {
                 perUserLimit: formData.perUserLimit ? Number(formData.perUserLimit) : 1,
                 validFrom: formData.validFrom,
                 validTill: formData.validTill,
+                isActive: formData.isActive !== undefined ? formData.isActive : true,
             };
 
             if (editingCoupon?._id) {
@@ -168,13 +229,17 @@ const CouponManagement = () => {
     };
 
     const handleDelete = async (id) => {
+        if (!id) {
+            showToast('Invalid coupon ID', 'error');
+            return;
+        }
         try {
             await adminApi.deleteCoupon(id);
-            setCoupons(coupons.filter(c => c._id !== id));
+            setCoupons(prev => prev.filter(c => c._id !== id && c.id !== id));
             setDeleteTarget(null);
-            showToast('Coupon removed', 'warning');
+            showToast('Coupon removed successfully', 'warning');
         } catch (error) {
-            showToast('Failed to delete coupon', 'error');
+            showToast(error.response?.data?.message || 'Failed to delete coupon', 'error');
         }
     };
 
@@ -271,7 +336,7 @@ const CouponManagement = () => {
                         <tbody className="divide-y divide-slate-50">
                             {isLoading && (
                                 <tr>
-                                    <td colSpan="6" className="text-center py-8 text-slate-400 text-sm">
+                                    <td colSpan={6} className="text-center py-8 text-slate-400 text-sm">
                                         Loading coupons...
                                     </td>
                                 </tr>
@@ -324,20 +389,56 @@ const CouponManagement = () => {
                                         </div>
                                     </td>
                                     <td className="px-4 py-6 text-center">
-                                        <Badge variant={c.isActive ? 'success' : 'secondary'} className="text-[9px] font-black uppercase">
-                                            {c.isActive ? 'active' : 'inactive'}
-                                        </Badge>
+                                        {(() => {
+                                            const statusInfo = getCouponStatusInfo(c);
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggleStatus(c)}
+                                                    disabled={togglingId === (c._id || c.id)}
+                                                    className={cn(
+                                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all shadow-xs cursor-pointer border group/status",
+                                                        statusInfo.color,
+                                                        togglingId === (c._id || c.id) && "opacity-50 cursor-not-allowed"
+                                                    )}
+                                                    title={statusInfo.tooltip}
+                                                >
+                                                    <span className={cn(
+                                                        "h-2 w-2 rounded-full transition-transform group-hover/status:scale-125",
+                                                        statusInfo.dot
+                                                    )} />
+                                                    {statusInfo.label}
+                                                </button>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-4 py-6">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleStatus(c)}
+                                                disabled={togglingId === (c._id || c.id)}
+                                                title={c.isActive ? "Deactivate coupon" : "Activate coupon"}
+                                                className={cn(
+                                                    "p-2 rounded-xl transition-all",
+                                                    c.isActive
+                                                        ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                                                        : "text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50",
+                                                    togglingId === (c._id || c.id) && "opacity-50 cursor-not-allowed"
+                                                )}
+                                            >
+                                                <HiOutlinePower className="h-5 w-5" />
+                                            </button>
                                             <button
                                                 onClick={() => handleOpenModal(c)}
+                                                title="Edit coupon"
                                                 className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
                                             >
                                                 <HiOutlinePencilSquare className="h-5 w-5" />
                                             </button>
                                             <button
                                                 onClick={() => setDeleteTarget(c)}
+                                                title="Delete coupon"
                                                 className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                                             >
                                                 <HiOutlineTrash className="h-5 w-5" />
@@ -388,7 +489,7 @@ const CouponManagement = () => {
                                         Cancel
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(deleteTarget.id)}
+                                        onClick={() => handleDelete(deleteTarget?._id || deleteTarget?.id)}
                                         className="px-4 py-2.5 bg-rose-600 text-white rounded-xl font-medium hover:bg-rose-700 transition-colors"
                                     >
                                         Delete
@@ -457,7 +558,7 @@ const CouponManagement = () => {
                             <input
                                 required
                                 type="number"
-                                onWheel={(e) => e.target.blur()}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 value={formData.discountValue}
                                 onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-black outline-none"
@@ -468,7 +569,7 @@ const CouponManagement = () => {
                             <input
                                 required
                                 type="number"
-                                onWheel={(e) => e.target.blur()}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 value={formData.minOrderValue}
                                 onChange={(e) => setFormData({ ...formData, minOrderValue: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-black outline-none"
@@ -481,7 +582,7 @@ const CouponManagement = () => {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Discount (optional)</label>
                             <input
                                 type="number"
-                                onWheel={(e) => e.target.blur()}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 value={formData.maxDiscount}
                                 onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-black outline-none"
@@ -491,7 +592,7 @@ const CouponManagement = () => {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Uses (optional)</label>
                             <input
                                 type="number"
-                                onWheel={(e) => e.target.blur()}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 value={formData.usageLimit}
                                 onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-black outline-none"
@@ -505,7 +606,7 @@ const CouponManagement = () => {
                             <input
                                 type="number"
                                 min={1}
-                                onWheel={(e) => e.target.blur()}
+                                onWheel={(e) => e.currentTarget.blur()}
                                 value={formData.perUserLimit}
                                 onChange={(e) => setFormData({ ...formData, perUserLimit: e.target.value })}
                                 className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-black outline-none"
@@ -548,6 +649,30 @@ const CouponManagement = () => {
                             placeholder="Briefly describe the campaign..."
                             className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-black outline-none resize-none"
                         />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div>
+                            <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest block">Coupon Status</label>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                {formData.isActive ? 'Active — Customers can redeem this promotion at checkout' : 'Inactive — Promotion is deactivated and disabled'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                            className={cn(
+                                "relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none p-1 cursor-pointer",
+                                formData.isActive ? "bg-emerald-500" : "bg-slate-300"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-md",
+                                    formData.isActive ? "translate-x-5" : "translate-x-0"
+                                )}
+                            />
+                        </button>
                     </div>
 
                     <div className="flex gap-4 pt-4">

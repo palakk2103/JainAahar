@@ -1,4 +1,5 @@
 import Order from "../models/order.js";
+import Product from "../models/product.js";
 import Delivery from "../models/delivery.js";
 import Seller from "../models/seller.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
@@ -21,6 +22,33 @@ function refToIdString(ref) {
   if (ref == null) return "";
   if (typeof ref === "object" && ref._id != null) return String(ref._id);
   return String(ref);
+}
+
+export function enrichOrderItems(items = []) {
+  if (!Array.isArray(items)) return items;
+  return items.map((item) => {
+    let resolvedWeight = item.weight || item.product?.weight || "";
+    let resolvedVariantName = item.variantName || "";
+
+    const slot = String(item.variantSlot || item.variantSku || "").trim();
+    if (slot && item.product?.variants && Array.isArray(item.product.variants)) {
+      const found = item.product.variants.find(
+        (v) =>
+          String(v.sku || "").trim() === slot ||
+          String(v.name || "").trim() === slot ||
+          String(v._id || "").trim() === slot
+      );
+      if (found) {
+        resolvedVariantName = found.name || resolvedVariantName;
+        resolvedWeight = found.name || resolvedWeight;
+      }
+    }
+    return {
+      ...item,
+      weight: resolvedWeight || (resolvedVariantName ? resolvedVariantName : item.weight),
+      variantName: resolvedVariantName || item.variantName,
+    };
+  });
 }
 
 function normalizeSellerStatusFilter(statusParam) {
@@ -114,7 +142,7 @@ export async function fetchSellerOrdersPage({
       .skip(skip)
       .limit(limit)
       .populate("customer", "name phone")
-      .populate("items.product", "name mainImage price salePrice")
+      .populate("items.product", "name mainImage price salePrice weight unit variants")
       .populate("deliveryBoy", "name phone")
       .populate("seller", "shopName name")
       .lean(),
@@ -184,7 +212,10 @@ export async function fetchSellerOrdersPage({
 
   return {
     query,
-    orders,
+    orders: orders.map((o) => ({
+      ...o,
+      items: enrichOrderItems(o.items),
+    })),
     total,
     summary,
   };
@@ -428,13 +459,16 @@ export async function getCustomerOrders(customerId, pagination) {
           .sort({ createdAt: -1, _id: -1 })
           .skip(skip)
           .limit(limit)
-          .populate("items.product", "name mainImage price salePrice")
+          .populate("items.product", "name mainImage price salePrice weight unit variants")
           .lean(),
         Order.countDocuments(customerQuery),
       ]);
 
       return {
-        items: orders,
+        items: orders.map((o) => ({
+          ...o,
+          items: enrichOrderItems(o.items),
+        })),
         page,
         limit,
         total,
@@ -460,7 +494,7 @@ export async function getOrderWithAccess(orderId, userId, role) {
 
   let order = await Order.findOne(orderKey)
     .populate("customer", "name email phone")
-    .populate("items.product", "name mainImage price salePrice")
+    .populate("items.product", "name mainImage price salePrice weight unit variants")
     .populate("deliveryBoy", "name phone")
     .populate("returnDeliveryBoy", "name phone")
     .populate("seller", "shopName name address phone location")
@@ -605,6 +639,10 @@ export async function getOrderWithAccess(orderId, userId, role) {
     }
   } catch (fulErr) {
     logger.warn(`[OrderQuery] Non-fatal fulfillment populate error: ${fulErr.message}`);
+  }
+
+  if (order && Array.isArray(order.items)) {
+    order.items = enrichOrderItems(order.items);
   }
 
   return {

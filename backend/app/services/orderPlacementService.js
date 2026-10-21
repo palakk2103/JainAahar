@@ -80,6 +80,8 @@ function mapOrderItemsForPersistence(hydratedItems = []) {
     quantity: item.quantity,
     price: item.price,
     variantSlot: String(item.variantSku || item.variantSlot || "").trim() || undefined,
+    variantName: item.variantName || undefined,
+    weight: item.weight || undefined,
     image: item.image || "",
   }));
 }

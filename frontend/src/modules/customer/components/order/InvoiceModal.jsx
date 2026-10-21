@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '@core/context/SettingsContext';
+import { formatWeight } from '@core/utils/formatUtils';
 import { useToast } from '@shared/components/ui/Toast';
 
 const InvoiceModal = ({ isOpen, onClose, order }) => {
@@ -468,11 +469,15 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                                             <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a" }}>
                                                                 {item.name || item.product?.name}
                                                             </div>
-                                                            {item.variantSku && (
+                                                            {(item.weight || item.variantName || item.product?.weight) ? (
+                                                                <div style={{ fontSize: "10px", color: "#15803d", marginTop: "2px", fontWeight: "700" }}>
+                                                                    Weight / Pack: {formatWeight(item.weight || item.variantName || item.product?.weight, "")}
+                                                                </div>
+                                                            ) : item.variantSku ? (
                                                                 <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
                                                                     Variant: {item.variantSku}
                                                                 </div>
-                                                            )}
+                                                            ) : null}
                                                         </td>
                                                         <td style={{ padding: "9px 8px", fontSize: "12px", color: "#334155", fontWeight: "700", textAlign: "right" }}>
                                                             ₹{item.price}

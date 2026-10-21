@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '@core/context/SettingsContext';
+import { formatWeight } from '@core/utils/formatUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
@@ -45,6 +46,34 @@ const OrderDetail = () => {
     const [isEvaluating, setIsEvaluating] = useState(false);
     const [isAssigning, setIsAssigning] = useState(false);
     const invoiceRef = useRef(null);
+
+    const getItemPackSize = (item) => {
+        if (!item) return '';
+        if (item.weight && !/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i.test(item.weight)) {
+            return formatWeight(item.weight, item.weight);
+        }
+        if (item.variantName && !/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i.test(item.variantName)) {
+            return formatWeight(item.variantName, item.variantName);
+        }
+        const slot = String(item.variantSlot || item.variantSku || '').trim();
+        if (slot && item.product?.variants && Array.isArray(item.product.variants)) {
+            const found = item.product.variants.find(
+                (v) => String(v.sku || '').trim() === slot ||
+                       String(v.name || '').trim() === slot ||
+                       String(v._id || '').trim() === slot
+            );
+            if (found?.name) {
+                return formatWeight(found.name, found.name);
+            }
+        }
+        if (item.product?.weight) {
+            return formatWeight(item.product.weight, item.product.weight);
+        }
+        if (slot && !/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i.test(slot)) {
+            return formatWeight(slot, slot);
+        }
+        return '';
+    };
 
     const fetchDetail = async () => {
         setIsLoading(true);
@@ -348,14 +377,36 @@ const OrderDetail = () => {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-sm font-black text-slate-900">{item.name}</h4>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">ID: {item.product?._id || item.product}</p>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <h4 className="text-sm font-black text-slate-900">{item.name}</h4>
+                                                            {getItemPackSize(item) && (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                    {getItemPackSize(item)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                                            <span>ID: {item.product?._id || item.product}</span>
+                                                            {getItemPackSize(item) && (
+                                                                <>
+                                                                    <span>•</span>
+                                                                    <span className="text-slate-600 font-extrabold normal-case">
+                                                                        Pack: {getItemPackSize(item)}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-center text-sm font-bold text-slate-600">₹{item.price}</td>
                                             <td className="px-6 py-5 text-center">
                                                 <span className="bg-slate-100 px-3 py-1 rounded-lg text-xs font-black text-slate-700">x{item.quantity}</span>
+                                                {getItemPackSize(item) && (
+                                                    <p className="text-[10px] font-black text-slate-500 mt-1">
+                                                        ({getItemPackSize(item)})
+                                                    </p>
+                                                )}
                                             </td>
                                             <td className="px-6 py-5 text-right text-sm font-black text-slate-900">₹{item.price * item.quantity}</td>
                                         </tr>
@@ -889,11 +940,15 @@ const OrderDetail = () => {
                                             <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a" }}>
                                                 {item.name || item.product?.name}
                                             </div>
-                                            {item.variantSku && (
+                                            {getItemPackSize(item) ? (
+                                                <div style={{ fontSize: "10px", color: "#15803d", marginTop: "2px", fontWeight: "700" }}>
+                                                    Weight / Pack: {getItemPackSize(item)}
+                                                </div>
+                                            ) : item.variantSku ? (
                                                 <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
                                                     Variant: {item.variantSku}
                                                 </div>
-                                            )}
+                                            ) : null}
                                         </td>
                                         <td style={{ padding: "10px 12px", fontSize: "12px", color: "#334155", fontWeight: "700", textAlign: "right" }}>
                                             ₹{item.price}
